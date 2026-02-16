@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Green rounded rectangle background -->
+  <rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#2D6A4F"/>
+  
+  <!-- Pulse/workflow line connecting nodes -->
+  <polyline 
+    points="8,50 22,50 35,25 50,75 65,25 78,50 92,50"
+    fill="none" 
+    stroke="white" 
+    stroke-width="4" 
+    stroke-linecap="round" 
+    stroke-linejoin="round"/>
+  
+  <!-- Left outside node (green with stroke for visibility) -->
+  <circle cx="8" cy="50" r="6" fill="#2D6A4F"/>
+  
+  <!-- Inside nodes (white with green center) -->
+  <circle cx="22" cy="50" r="6" fill="white"/>
+  <circle cx="22" cy="50" r="3" fill="#2D6A4F"/>
+  
+  <circle cx="35" cy="25" r="6" fill="white"/>
+  <circle cx="35" cy="25" r="3" fill="#2D6A4F"/>
+  
+  <circle cx="50" cy="75" r="6" fill="white"/>
+  <circle cx="50" cy="75" r="3" fill="#2D6A4F"/>
+  
+  <circle cx="65" cy="25" r="6" fill="white"/>
+  <circle cx="65" cy="25" r="3" fill="#2D6A4F"/>
+  
+  <circle cx="78" cy="50" r="6" fill="white"/>
+  <circle cx="78" cy="50" r="3" fill="#2D6A4F"/>
+  
+  <!-- Right outside node (green) -->
+  <circle cx="92" cy="50" r="6" fill="#2D6A4F"/>
+</svg>

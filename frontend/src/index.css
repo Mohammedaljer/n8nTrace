@@ -1,0 +1,280 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Background layers for depth */
+    --background: 220 20% 97%;
+    --background-secondary: 220 20% 94%;
+    --foreground: 222 47% 11%;
+
+    /* Card surfaces with subtle distinction */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary green accent (Syrian-flag-like green) */
+    --primary: 145 63% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 220 14% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success uses same green as primary for consistency */
+    --success: 145 63% 32%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Info color */
+    --info: 210 100% 50%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 145 63% 32%;
+
+    --radius: 0.625rem;
+
+    /* Sidebar */
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 213 31% 91%;
+    --sidebar-primary: 145 63% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 145 63% 42%;
+    --sidebar-muted: 220 9% 46%;
+
+    /* Chart colors */
+    --chart-1: 145 63% 32%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark {
+    /* Softer dark background - not pure black */
+    --background: 222 47% 8%;
+    --background-secondary: 222 47% 11%;
+    --foreground: 213 31% 91%;
+
+    /* Card with subtle elevation from background */
+    --card: 222 47% 12%;
+    --card-foreground: 213 31% 91%;
+
+    --popover: 222 47% 12%;
+    --popover-foreground: 213 31% 91%;
+
+    /* Primary green - slightly brighter for dark mode visibility */
+    --primary: 145 63% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success uses same green as primary */
+    --success: 145 63% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --info: 210 100% 60%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 145 63% 42%;
+
+    /* Sidebar - slightly darker than main background */
+    --sidebar-background: 222 47% 6%;
+    --sidebar-foreground: 213 31% 91%;
+    --sidebar-primary: 145 63% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 14%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 14%;
+    --sidebar-ring: 145 63% 42%;
+    --sidebar-muted: 215 20% 65%;
+
+    /* Chart colors - brighter for dark mode */
+    --chart-1: 145 63% 45%;
+    --chart-2: 173 58% 45%;
+    --chart-3: 197 37% 40%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Focus-visible styles for accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Skip link for keyboard users */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md;
+  }
+
+  /* Reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Dark mode date/datetime input styling */
+  input[type="datetime-local"],
+  input[type="date"],
+  input[type="time"] {
+    color-scheme: light;
+  }
+
+  .dark input[type="datetime-local"],
+  .dark input[type="date"],
+  .dark input[type="time"] {
+    color-scheme: dark;
+  }
+
+  /* Ensure native calendar picker icons are clearly visible */
+  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+  .dark input[type="date"]::-webkit-calendar-picker-indicator,
+  .dark input[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 1;
+  }
+}
+
+/* Custom utility classes */
+@layer utilities {
+  /* Tabular numbers for data tables */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70;
+  }
+
+  /* Card hover states */
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:border-primary/20;
+  }
+
+  /* KPI card styling */
+  .kpi-card {
+    @apply bg-card border rounded-xl shadow-sm transition-all duration-200;
+    @apply hover:shadow-md hover:border-primary/20;
+  }
+
+  /* Data table row hover */
+  .data-row {
+    @apply transition-colors hover:bg-muted/50;
+  }
+
+  /* Status indicators */
+  .status-success {
+    @apply text-success;
+  }
+  .status-error {
+    @apply text-destructive;
+  }
+  .status-warning {
+    @apply text-warning;
+  }
+  .status-info {
+    @apply text-info;
+  }
+
+  /* Page section spacing */
+  .section-spacing {
+    @apply space-y-6;
+  }
+
+  /* Subtle glass effect */
+  .glass {
+    @apply backdrop-blur-sm bg-card/80;
+  }
+}
+
+/* Recharts custom styling */
+@layer components {
+  .recharts-cartesian-grid-horizontal line,
+  .recharts-cartesian-grid-vertical line {
+    stroke: hsl(var(--border));
+  }
+
+  .recharts-tooltip-wrapper {
+    @apply !outline-none;
+  }
+
+  .recharts-default-tooltip {
+    @apply !bg-card !border-border !rounded-lg !shadow-lg;
+  }
+
+  .recharts-tooltip-label {
+    @apply !text-foreground !font-semibold;
+  }
+
+  .recharts-tooltip-item {
+    @apply !text-muted-foreground;
+  }
+
+  .recharts-legend-item-text {
+    @apply !text-muted-foreground;
+  }
+
+  /* Custom scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-muted/30 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/30;
+  }
+}

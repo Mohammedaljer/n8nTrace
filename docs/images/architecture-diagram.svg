@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 200" fill="none">
+  <!-- Background -->
+  <rect width="700" height="200" fill="#0f172a" rx="8"/>
+  
+  <!-- User/Browser -->
+  <rect x="20" y="70" width="80" height="60" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <rect x="28" y="78" width="64" height="36" rx="2" fill="#0f172a"/>
+  <circle cx="60" cy="120" r="4" fill="#64748b"/>
+  <text x="60" y="150" font-family="system-ui, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">Browser</text>
+  
+  <!-- Arrow 1 -->
+  <path d="M105 100 L145 100" stroke="#f97316" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="125" y="90" font-family="system-ui, sans-serif" font-size="8" fill="#64748b" text-anchor="middle">HTTPS</text>
+  
+  <!-- Reverse Proxy -->
+  <rect x="150" y="60" width="90" height="80" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="195" y="95" font-family="system-ui, sans-serif" font-size="11" fill="#f8fafc" text-anchor="middle">Reverse</text>
+  <text x="195" y="110" font-family="system-ui, sans-serif" font-size="11" fill="#f8fafc" text-anchor="middle">Proxy</text>
+  <text x="195" y="155" font-family="system-ui, sans-serif" font-size="9" fill="#64748b" text-anchor="middle">nginx/Traefik</text>
+  
+  <!-- Arrow 2 -->
+  <path d="M245 100 L285 100" stroke="#f97316" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="265" y="90" font-family="system-ui, sans-serif" font-size="8" fill="#64748b" text-anchor="middle">:8899</text>
+  
+  <!-- Frontend -->
+  <rect x="290" y="60" width="90" height="80" rx="6" fill="#1e293b" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="335" y="95" font-family="system-ui, sans-serif" font-size="11" fill="#f8fafc" text-anchor="middle">Frontend</text>
+  <text x="335" y="110" font-family="system-ui, sans-serif" font-size="11" fill="#f8fafc" text-anchor="middle">(nginx)</text>
+  <text x="335" y="155" font-family="system-ui, sans-serif" font-size="9" fill="#22c55e" text-anchor="middle">React + Vite</text>
+  
+  <!-- Arrow 3 -->
+  <path d="M385 100 L425 100" stroke="#f97316" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="405" y="90" font-family="system-ui, sans-serif" font-size="8" fill="#64748b" text-anchor="middle">/api/*</text>
+  
+  <!-- Backend -->
+  <rect x="430" y="60" width="90" height="80" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="475" y="95" font-family="system-ui, sans-serif" font-size="11" fill="#f8fafc" text-anchor="middle">Backend</text>
+  <text x="475" y="110" font-family="system-ui, sans-serif" font-size="11" fill="#f8fafc" text-anchor="middle">:8001</text>
+  <text x="475" y="155" font-family="system-ui, sans-serif" font-size="9" fill="#3b82f6" text-anchor="middle">Express.js</text>
+  
+  <!-- Arrow 4 -->
+  <path d="M525 100 L565 100" stroke="#f97316" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="545" y="90" font-family="system-ui, sans-serif" font-size="8" fill="#64748b" text-anchor="middle">:5432</text>
+  
+  <!-- PostgreSQL -->
+  <rect x="570" y="60" width="110" height="80" rx="6" fill="#1e293b" stroke="#a855f7" stroke-width="1.5"/>
+  <text x="625" y="95" font-family="system-ui, sans-serif" font-size="11" fill="#f8fafc" text-anchor="middle">PostgreSQL</text>
+  <text x="625" y="110" font-family="system-ui, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">(internal)</text>
+  <text x="625" y="155" font-family="system-ui, sans-serif" font-size="9" fill="#a855f7" text-anchor="middle">postgres:16</text>
+  
+  <!-- n8n incoming -->
+  <rect x="430" y="170" width="90" height="25" rx="4" fill="#1e293b" stroke="#f97316" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="475" y="187" font-family="system-ui, sans-serif" font-size="9" fill="#f97316" text-anchor="middle">n8n (ingest)</text>
+  <path d="M520 182 L565 130" stroke="#f97316" stroke-width="1" stroke-dasharray="4,2"/>
+  
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#f97316"/>
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="350" y="25" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#f8fafc" text-anchor="middle">Deployment Architecture</text>
+  <text x="350" y="42" font-family="system-ui, sans-serif" font-size="10" fill="#64748b" text-anchor="middle">All components run in Docker containers on internal network</text>
+</svg>

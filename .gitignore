@@ -1,0 +1,147 @@
+# n8n Pulse - Security-focused .gitignore
+# See https://help.github.com/articles/ignoring-files/
+
+# =============================================================================
+# SECRETS & ENVIRONMENT (CRITICAL - never commit)
+# =============================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*token.json*
+*credentials.json*
+secrets/
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+node_modules/
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# =============================================================================
+# BUILD & PRODUCTION
+# =============================================================================
+/build
+dist/
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# =============================================================================
+# TESTING & COVERAGE
+# =============================================================================
+/coverage
+.nyc_output/
+
+# =============================================================================
+# LOGS & DEBUG
+# =============================================================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.log
+dump.rdb
+
+# =============================================================================
+# DATABASE & DATA
+# =============================================================================
+postgres_data/
+*.sql.gz
+*.dump
+
+# =============================================================================
+# IDE & EDITORS
+# =============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# =============================================================================
+# SYSTEM FILES
+# =============================================================================
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# PYTHON (if used for testing)
+# =============================================================================
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# =============================================================================
+# ARCHIVES & LARGE FILES
+# =============================================================================
+**/*.zip
+**/*.tar.gz
+**/*.tar
+**/*.tgz
+*.pack
+*.deb
+*.dylib
+
+# =============================================================================
+# MISC
+# =============================================================================
+.cache/
+.vercel
+.ipynb_checkpoints/
+-e 
+# Environment files
+*.env
+*.env.*
+-e 
+# Environment files
+*.env
+-e 
+
+# Ignore all docker compose files...
+docker-compose*.yml
+docker-compose*.yaml
+
+# ...but keep production compose
+!docker-compose.prod.yml
+!docker-compose.prod.yaml
+# Ignore all markdown everywhere
+**/*.md
+
+# Keep ONLY the root README
+!/README.md
+
+# Keep docs markdown (and make sure the folder itself isn't excluded)
+!docs/
+!docs/**/*.md
+!/backend/README.md
+# Env backups
+.env.bak
+
+# Local DB/volumes if you use them
+data/
+volumes/
+
+# NPM/Yarn/Pnpm extra
+.pnpm-store/
+.yarn-cache/
+.yarn-unplugged/
+
+# Logs folders (some libs create these)
+logs/
+/test_reports/
+/testreports/
+/backend/tests/
+/frontend/src/test/

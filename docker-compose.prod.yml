@@ -1,0 +1,112 @@
+# n8n Pulse Production Docker Compose
+# 
+# Usage: 
+#   cp .env.example .env
+#   # Edit .env with your secure values
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Required environment variables:
+#   - JWT_SECRET: Minimum 32 character secret (generate: openssl rand -base64 32)
+#   - POSTGRES_PASSWORD: Strong database password
+#
+# Optional:
+#   - APP_URL / CORS_ORIGIN: Your public URL
+#   - HTTP_PORT: Host port (default 8899)
+#
+# Verification:
+#   docker exec n8n_pulse_frontend curl -s http://backend:8001/health
+#   curl -i http://localhost:8899/api/metrics/config
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: n8n_pulse_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: n8n_pulse
+      POSTGRES_USER: n8n_pulse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8n_pulse -d n8n_pulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      internal:
+        aliases:
+          - postgres
+          - n8n_pulse_postgres
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: mohammedaljer/n8n_pulse_backend:v1.3.0
+    container_name: n8n_pulse_backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: postgres://n8n_pulse:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/n8n_pulse
+      PORT: "8001"
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required - minimum 32 characters}
+      APP_URL: ${APP_URL:-http://localhost:8899}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8899}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      TRUST_PROXY: "1"
+      LOG_FORMAT: json
+      RETENTION_ENABLED: ${RETENTION_ENABLED:-true}
+      RETENTION_DAYS: ${RETENTION_DAYS:-90}
+      RETENTION_RUN_AT: ${RETENTION_RUN_AT:-03:30}
+      RETENTION_TZ: ${RETENTION_TZ:-UTC}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      METRICS_MAX_TIME_RANGE_DAYS: ${METRICS_MAX_TIME_RANGE_DAYS:-30}
+      METRICS_MAX_DATAPOINTS: ${METRICS_MAX_DATAPOINTS:-1000}
+      PULSE_INGEST_USER: ${PULSE_INGEST_USER:-}
+      PULSE_INGEST_PASSWORD: ${PULSE_INGEST_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -m 5 http://localhost:8001/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      internal:
+        aliases:
+          - backend
+          - n8n_pulse_backend
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: mohammedaljer/n8n_pulse_frontend:v1.3.0
+    container_name: n8n_pulse_frontend
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8899}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      internal:
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
