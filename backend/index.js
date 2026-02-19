@@ -23,7 +23,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const cron = require('node-cron');
-const RETENTION_TZ = process.env.RETENTION_TZ || 'UTC';
+const tz = process.env.RETENTION_TZ || 'UTC';
 // ============================================================================
 // ENVIRONMENT VALIDATION
 // ============================================================================
@@ -1009,9 +1009,286 @@ async function validateAndConsumeToken(rawToken, expectedType) {
 }
 
 // ============================================================================
-// SCOPE WHERE BUILDER
+// CENTRALIZED RBAC AUTHORIZATION HELPER
 // ============================================================================
 
+/**
+ * Centralized authorization helper that resolves "allowed workflow IDs" per request.
+ * This is the single source of truth for RBAC scope enforcement.
+ * 
+ * Returns:
+ * - { isAdmin: true } for admins (unrestricted access)
+ * - { isAdmin: false, allowedWorkflowIds: [...] } for scoped users
+ * - { isAdmin: false, allowedWorkflowIds: [] } for non-admins with no scopes (default deny)
+ * 
+ * Caches result on req.authz for per-request reuse.
+ */
+async function getAuthorizationContext(req, options = {}) {
+  const { instanceFilter = null } = options;
+  
+  // Return cached result if available (per-request caching)
+  const cacheKey = `authz_${instanceFilter || 'all'}`;
+  if (req._authzCache?.[cacheKey]) {
+    return req._authzCache[cacheKey];
+  }
+  
+  const userId = req.user?.sub;
+  if (!userId) {
+    return { isAdmin: false, allowedWorkflowIds: [], hasAnyScopeRows: false };
+  }
+  
+  // Get permissions (may already be attached by requirePermission middleware)
+  const permissions = req.permissions || await getUserPermissions(userId);
+  req.permissions = permissions; // Cache for later use
+  
+  // Admin check: admin:users or admin:roles permission = unrestricted access
+  const isAdmin = permissions.includes('admin:users') || permissions.includes('admin:roles');
+  if (isAdmin) {
+    const result = { isAdmin: true, allowedWorkflowIds: null, hasAnyScopeRows: true };
+    if (!req._authzCache) req._authzCache = {};
+    req._authzCache[cacheKey] = result;
+    return result;
+  }
+  
+  // Get user's group scopes
+  const { rows: scopeRows } = await pool.query(
+    `SELECT gs.instance_id, gs.workflow_id, gs.tag 
+     FROM app_users u
+     JOIN user_groups ug ON ug.user_id = u.id
+     JOIN group_scopes gs ON gs.group_id = ug.group_id
+     WHERE u.id = $1 AND u.is_active = true`,
+    [userId]
+  );
+  
+  // Default deny: non-admin with no scope rows
+  if (scopeRows.length === 0) {
+    const result = { isAdmin: false, allowedWorkflowIds: [], hasAnyScopeRows: false };
+    if (!req._authzCache) req._authzCache = {};
+    req._authzCache[cacheKey] = result;
+    return result;
+  }
+  
+  // Collect explicit workflow IDs from scopes
+  const explicitWorkflowIds = new Set();
+  const scopedTags = new Set();
+  const scopedInstanceIds = new Set();
+  let hasGlobalInstanceScope = false;
+  // Track if user has ANY explicit instance scope row (not just tag/workflow)
+  let hasExplicitInstanceScope = false;
+  
+  for (const row of scopeRows) {
+    // Track instance scopes
+    // A row with instance_id = NULL means "all instances" ONLY if:
+    // - It's an instance-only scope (no tag, no workflow_id set in that row)
+    // OR - It's combined with other scopes
+    // For pure tag scopes (tag set, instance_id=NULL, workflow_id=NULL), 
+    // we DON'T grant global instance metrics access
+    if (row.instance_id === null && !row.tag && !row.workflow_id) {
+      // This is an explicit "all instances" grant
+      hasGlobalInstanceScope = true;
+      hasExplicitInstanceScope = true;
+    } else if (row.instance_id) {
+      scopedInstanceIds.add(row.instance_id);
+      hasExplicitInstanceScope = true;
+    }
+    // Note: If only tag or workflow_id is set (no instance_id), 
+    // we don't set hasGlobalInstanceScope - user gets workflow access but not instance metrics
+    
+    // Collect explicit workflow IDs
+    if (row.workflow_id) {
+      explicitWorkflowIds.add(row.workflow_id);
+    }
+    
+    // Collect tags for JSONB matching
+    if (row.tag) {
+      scopedTags.add(row.tag);
+    }
+  }
+  
+  // Build allowed workflow IDs set
+  const allowedWorkflowIds = new Set(explicitWorkflowIds);
+  
+  // Determine if user has tag-only scope (no instance restriction for workflow access)
+  // A tag-only scope means: tag is set but NO explicit instance_id scope
+  const hasTagOnlyScope = scopedTags.size > 0 && !hasExplicitInstanceScope;
+  
+  // Resolve workflows by tag scopes using JSONB membership check
+  if (scopedTags.size > 0) {
+    const tagsArray = [...scopedTags];
+    
+    // Build instance filter condition
+    let instanceCondition = '';
+    const queryParams = [tagsArray];
+    let paramIndex = 2;
+    
+    if (instanceFilter) {
+      // Specific instance requested
+      // For tag-only scopes: allow access to any instance (tag filters the workflows)
+      // For instance-scoped users: verify they have access to this instance
+      if (!hasTagOnlyScope && !hasGlobalInstanceScope && !scopedInstanceIds.has(instanceFilter)) {
+        // User has explicit instance scope but not for this instance
+        const result = { isAdmin: false, allowedWorkflowIds: [], hasAnyScopeRows: true, hasExplicitInstanceScope };
+        if (!req._authzCache) req._authzCache = {};
+        req._authzCache[cacheKey] = result;
+        return result;
+      }
+      // Apply instance filter to query
+      instanceCondition = ` AND instance_id = $${paramIndex}`;
+      queryParams.push(instanceFilter);
+      paramIndex++;
+    } else if (!hasTagOnlyScope && !hasGlobalInstanceScope && scopedInstanceIds.size > 0) {
+      // User has instance-specific scopes, filter to those instances
+      instanceCondition = ` AND instance_id = ANY($${paramIndex}::text[])`;
+      queryParams.push([...scopedInstanceIds]);
+      paramIndex++;
+    }
+    // If hasGlobalInstanceScope OR hasTagOnlyScope, no instance filter needed
+    
+    // Use JSONB ?| operator for exact tag membership check
+    // tags column contains JSON array string like '["backup","production"]'
+    // We cast to jsonb and check if ANY of the allowed tags is present
+    // Safe handling: invalid JSON will not match (caught by try-catch)
+    // We use a subquery with error handling via PL/pgSQL or simple regex pre-check
+    const tagQuery = `
+      SELECT workflow_id FROM workflows_index 
+      WHERE (
+        CASE 
+          WHEN tags IS NOT NULL 
+               AND tags != '' 
+               AND tags != '[]' 
+               AND tags ~ '^\\s*\\[.*\\]\\s*$'  -- Basic JSON array format check
+          THEN
+            (tags::jsonb ?| $1::text[])
+          ELSE false
+        END
+      )${instanceCondition}
+    `;
+    
+    try {
+      const { rows: tagWorkflows } = await pool.query(tagQuery, queryParams);
+      for (const row of tagWorkflows) {
+        allowedWorkflowIds.add(row.workflow_id);
+      }
+    } catch (err) {
+      // If JSONB cast fails for any reason (shouldn't happen with CASE but safety first)
+      console.error('Tag scope resolution error:', err.message);
+      // Continue with explicit workflow IDs only (fail-safe to deny)
+    }
+  }
+  
+  // Handle instance-only scopes (no tags, no explicit workflow_ids)
+  // In this case, user has access to ALL workflows in the scoped instances
+  const hasInstanceOnlyScope = hasExplicitInstanceScope && scopedTags.size === 0 && explicitWorkflowIds.size === 0;
+  
+  if (hasInstanceOnlyScope) {
+    let instanceQuery, queryParams;
+    
+    if (instanceFilter) {
+      // Check if user has access to the requested instance
+      if (!hasGlobalInstanceScope && !scopedInstanceIds.has(instanceFilter)) {
+        const result = { isAdmin: false, allowedWorkflowIds: [], hasAnyScopeRows: true, hasExplicitInstanceScope };
+        if (!req._authzCache) req._authzCache = {};
+        req._authzCache[cacheKey] = result;
+        return result;
+      }
+      instanceQuery = `SELECT workflow_id FROM workflows_index WHERE instance_id = $1`;
+      queryParams = [instanceFilter];
+    } else if (hasGlobalInstanceScope) {
+      // All instances - get all workflows
+      instanceQuery = `SELECT workflow_id FROM workflows_index`;
+      queryParams = [];
+    } else {
+      // Get workflows from scoped instances
+      instanceQuery = `SELECT workflow_id FROM workflows_index WHERE instance_id = ANY($1::text[])`;
+      queryParams = [[...scopedInstanceIds]];
+    }
+    
+    try {
+      const { rows: instanceWorkflows } = await pool.query(instanceQuery, queryParams);
+      for (const row of instanceWorkflows) {
+        allowedWorkflowIds.add(row.workflow_id);
+      }
+    } catch (err) {
+      console.error('Instance scope resolution error:', err.message);
+    }
+  }
+  
+  // Also add explicit workflow_id scopes, respecting instance filter
+  if (explicitWorkflowIds.size > 0) {
+    let workflowInstanceCheck = '';
+    const queryParams = [[...explicitWorkflowIds]];
+    
+    if (instanceFilter) {
+      workflowInstanceCheck = ' AND instance_id = $2';
+      queryParams.push(instanceFilter);
+    } else if (!hasGlobalInstanceScope && scopedInstanceIds.size > 0) {
+      workflowInstanceCheck = ' AND instance_id = ANY($2::text[])';
+      queryParams.push([...scopedInstanceIds]);
+    }
+    
+    const workflowQuery = `
+      SELECT workflow_id FROM workflows_index 
+      WHERE workflow_id = ANY($1::text[])${workflowInstanceCheck}
+    `;
+    
+    try {
+      const { rows: explicitWorkflows } = await pool.query(workflowQuery, queryParams);
+      // Clear and re-add only workflows that exist and match instance filter
+      for (const wid of explicitWorkflowIds) {
+        allowedWorkflowIds.delete(wid);
+      }
+      for (const row of explicitWorkflows) {
+        allowedWorkflowIds.add(row.workflow_id);
+      }
+    } catch (err) {
+      console.error('Explicit workflow scope resolution error:', err.message);
+    }
+  }
+  
+  const result = {
+    isAdmin: false,
+    allowedWorkflowIds: [...allowedWorkflowIds],
+    hasAnyScopeRows: true,
+    scopedInstanceIds: [...scopedInstanceIds],
+    hasGlobalInstanceScope,
+    hasExplicitInstanceScope, // true if user has any instance-level scope (for metrics access)
+  };
+  
+  if (!req._authzCache) req._authzCache = {};
+  req._authzCache[cacheKey] = result;
+  return result;
+}
+
+/**
+ * Middleware to attach authorization context to request.
+ * Call this instead of attachScope for endpoints that need workflow filtering.
+ */
+async function attachAuthz(req, res, next) {
+  if (req.user?.sub) {
+    req.authz = await getAuthorizationContext(req);
+  }
+  next();
+}
+
+/**
+ * Check if user has access to a specific instance (for instance-level metrics).
+ * For non-admin users with tag/workflow scopes but no explicit instance scope,
+ * they do NOT have access to instance-level infrastructure metrics.
+ */
+async function userHasInstanceAccessForMetrics(req, instanceId) {
+  const authz = await getAuthorizationContext(req, { instanceFilter: instanceId });
+  
+  // Admin has full access
+  if (authz.isAdmin) return true;
+  
+  // Non-admin must have explicit instance scope (not just tag/workflow scope)
+  if (!authz.hasAnyScopeRows) return false;
+  
+  // Check if user has explicit instance scope (global or specific)
+  return authz.hasGlobalInstanceScope || authz.scopedInstanceIds?.includes(instanceId);
+}
+
+// Legacy function kept for backward compatibility with existing code
 function buildScopeWhere({ instanceCol, workflowCol, tagsCol, tagsMode }) {
   return ({ scope, paramsStartIndex = 1 }) => {
     const where = [], params = [];
@@ -1195,44 +1472,194 @@ app.post('/api/auth/validate-token', async (req, res) => {
 });
 
 // ============================================================================
-// ROUTES: DATA
+// ROUTES: DATA (with centralized RBAC enforcement)
 // ============================================================================
 
-const makeDataWhereWorkflows = buildScopeWhere({ instanceCol: 'instance_id', workflowCol: 'workflow_id', tagsCol: 'tags', tagsMode: 'text' });
-const makeDataWhereExecutions = buildScopeWhere({ instanceCol: 'instance_id', workflowCol: 'workflow_id', tagsCol: null });
-const makeDataWhereNodes = buildScopeWhere({ instanceCol: 'instance_id', workflowCol: 'workflow_id', tagsCol: null });
-
-app.get('/api/workflows', requireAuth, attachScope, requirePermission('read:workflows'), async (req, res) => {
-  if (!isAdminRequest(req) && !req.scope?.hasAnyScopeRows) return res.json([]);
+/**
+ * GET /api/workflows
+ * Returns workflows filtered by user's RBAC scopes.
+ * - Admin: all workflows
+ * - Scoped user: only workflows allowed by tag/workflow_id scopes
+ * - No scopes: empty array (default deny)
+ */
+app.get('/api/workflows', requireAuth, attachAuthz, requirePermission('read:workflows'), async (req, res) => {
+  const authz = req.authz;
+  
+  // Default deny for non-admin with no scopes
+  if (!authz.isAdmin && !authz.hasAnyScopeRows) {
+    return res.json([]);
+  }
+  
   const limit = Math.min(Number(req.query.limit || 1000), 5000);
   const offset = Math.max(Number(req.query.offset || 0), 0);
-  const { where, params, nextIndex } = makeDataWhereWorkflows({ scope: req.scope, paramsStartIndex: 1 });
-  params.push(limit, offset);
-  const sql = `SELECT instance_id, workflow_id, name, active, is_archived, updated_at, tags, nodes_count FROM workflows_index ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY updated_at DESC NULLS LAST LIMIT $${nextIndex} OFFSET $${nextIndex + 1}`;
+  const instanceFilter = req.query.instance_id || null;
+  
+  // Build query based on authorization
+  let sql, params;
+  
+  if (authz.isAdmin) {
+    // Admin: no workflow restriction, optional instance filter
+    if (instanceFilter) {
+      sql = `SELECT instance_id, workflow_id, name, active, is_archived, updated_at, tags, nodes_count 
+             FROM workflows_index WHERE instance_id = $1 
+             ORDER BY updated_at DESC NULLS LAST LIMIT $2 OFFSET $3`;
+      params = [instanceFilter, limit, offset];
+    } else {
+      sql = `SELECT instance_id, workflow_id, name, active, is_archived, updated_at, tags, nodes_count 
+             FROM workflows_index 
+             ORDER BY updated_at DESC NULLS LAST LIMIT $1 OFFSET $2`;
+      params = [limit, offset];
+    }
+  } else {
+    // Scoped user: filter by allowed workflow IDs
+    if (authz.allowedWorkflowIds.length === 0) {
+      return res.json([]);
+    }
+    
+    if (instanceFilter) {
+      sql = `SELECT instance_id, workflow_id, name, active, is_archived, updated_at, tags, nodes_count 
+             FROM workflows_index 
+             WHERE workflow_id = ANY($1::text[]) AND instance_id = $2
+             ORDER BY updated_at DESC NULLS LAST LIMIT $3 OFFSET $4`;
+      params = [authz.allowedWorkflowIds, instanceFilter, limit, offset];
+    } else {
+      sql = `SELECT instance_id, workflow_id, name, active, is_archived, updated_at, tags, nodes_count 
+             FROM workflows_index 
+             WHERE workflow_id = ANY($1::text[])
+             ORDER BY updated_at DESC NULLS LAST LIMIT $2 OFFSET $3`;
+      params = [authz.allowedWorkflowIds, limit, offset];
+    }
+  }
+  
   res.json((await pool.query(sql, params)).rows);
 });
 
-app.get('/api/executions', requireAuth, attachScope, requirePermission('read:executions'), async (req, res) => {
-  if (!isAdminRequest(req) && !req.scope?.hasAnyScopeRows) return res.json([]);
+/**
+ * GET /api/executions
+ * Returns executions filtered by user's RBAC scopes.
+ * - Admin: all executions
+ * - Scoped user: only executions for allowed workflows
+ * - No scopes: empty array (default deny)
+ */
+app.get('/api/executions', requireAuth, attachAuthz, requirePermission('read:executions'), async (req, res) => {
+  const authz = req.authz;
+  
+  // Default deny for non-admin with no scopes
+  if (!authz.isAdmin && !authz.hasAnyScopeRows) {
+    return res.json([]);
+  }
+  
   const limit = Math.min(Number(req.query.limit || 500), 5000);
   const offset = Math.max(Number(req.query.offset || 0), 0);
-  const { where, params, nextIndex } = makeDataWhereExecutions({ scope: req.scope, paramsStartIndex: 1 });
+  const instanceFilter = req.query.instance_id || null;
+  const workflowFilter = req.query.workflow_id || null;
+  
+  // Build query based on authorization
+  let sql, params;
+  let paramIndex = 1;
+  const whereClause = [];
+  params = [];
+  
+  if (authz.isAdmin) {
+    // Admin: no workflow restriction
+    if (instanceFilter) {
+      whereClause.push(`instance_id = $${paramIndex++}`);
+      params.push(instanceFilter);
+    }
+    if (workflowFilter) {
+      whereClause.push(`workflow_id = $${paramIndex++}`);
+      params.push(workflowFilter);
+    }
+  } else {
+    // Scoped user: must filter by allowed workflow IDs
+    if (authz.allowedWorkflowIds.length === 0) {
+      return res.json([]);
+    }
+    
+    // Apply workflow scope filter
+    whereClause.push(`workflow_id = ANY($${paramIndex++}::text[])`);
+    params.push(authz.allowedWorkflowIds);
+    
+    if (instanceFilter) {
+      whereClause.push(`instance_id = $${paramIndex++}`);
+      params.push(instanceFilter);
+    }
+    if (workflowFilter) {
+      // Verify requested workflow is in allowed list
+      if (!authz.allowedWorkflowIds.includes(workflowFilter)) {
+        return res.json([]);
+      }
+      whereClause.push(`workflow_id = $${paramIndex++}`);
+      params.push(workflowFilter);
+    }
+  }
+  
   params.push(limit, offset);
-  const sql = `SELECT instance_id, execution_id, workflow_id, status, finished, mode, started_at, stopped_at, duration_ms, nodes_count, last_node_executed FROM executions ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY started_at DESC LIMIT $${nextIndex} OFFSET $${nextIndex + 1}`;
+  const whereStr = whereClause.length > 0 ? `WHERE ${whereClause.join(' AND ')}` : '';
+  sql = `SELECT instance_id, execution_id, workflow_id, status, finished, mode, started_at, stopped_at, duration_ms, nodes_count, last_node_executed 
+         FROM executions ${whereStr} 
+         ORDER BY started_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+  
   res.json((await pool.query(sql, params)).rows);
 });
 
-app.get('/api/execution-nodes', requireAuth, attachScope, requirePermission('read:nodes'), async (req, res) => {
-  if (!isAdminRequest(req) && !req.scope?.hasAnyScopeRows) return res.json([]);
+/**
+ * GET /api/execution-nodes
+ * Returns execution nodes filtered by user's RBAC scopes.
+ * - Admin: all nodes
+ * - Scoped user: only nodes for allowed workflows
+ * - No scopes: empty array (default deny)
+ */
+app.get('/api/execution-nodes', requireAuth, attachAuthz, requirePermission('read:nodes'), async (req, res) => {
+  const authz = req.authz;
+  
+  // Default deny for non-admin with no scopes
+  if (!authz.isAdmin && !authz.hasAnyScopeRows) {
+    return res.json([]);
+  }
+  
   const executionId = req.query.execution_id || null;
-  const where = [], params = [];
-  let i = 1;
-  if (executionId) { where.push(`execution_id = $${i++}`); params.push(String(executionId)); }
-  const { where: scopeWhere, params: scopeParams, nextIndex } = makeDataWhereNodes({ scope: req.scope, paramsStartIndex: i });
-  where.push(...scopeWhere); params.push(...scopeParams);
+  const instanceFilter = req.query.instance_id || null;
   const limit = Math.min(Number(req.query.limit || 50000), 200000);
+  
+  // Build query based on authorization
+  let paramIndex = 1;
+  const whereClause = [];
+  const params = [];
+  
+  if (executionId) {
+    whereClause.push(`execution_id = $${paramIndex++}`);
+    params.push(String(executionId));
+  }
+  
+  if (authz.isAdmin) {
+    // Admin: no workflow restriction
+    if (instanceFilter) {
+      whereClause.push(`instance_id = $${paramIndex++}`);
+      params.push(instanceFilter);
+    }
+  } else {
+    // Scoped user: must filter by allowed workflow IDs
+    if (authz.allowedWorkflowIds.length === 0) {
+      return res.json([]);
+    }
+    
+    whereClause.push(`workflow_id = ANY($${paramIndex++}::text[])`);
+    params.push(authz.allowedWorkflowIds);
+    
+    if (instanceFilter) {
+      whereClause.push(`instance_id = $${paramIndex++}`);
+      params.push(instanceFilter);
+    }
+  }
+  
   params.push(limit);
-  const sql = `SELECT instance_id, execution_id, workflow_id, node_name, node_type, run_index, runs_count, is_last_run, execution_status, execution_time_ms, start_time_ms, start_time, items_out_count, items_out_total_all_runs FROM execution_nodes ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY ${executionId ? 'start_time_ms ASC NULLS LAST, node_name ASC' : 'inserted_at DESC NULLS LAST'} LIMIT $${nextIndex}`;
+  const whereStr = whereClause.length > 0 ? `WHERE ${whereClause.join(' AND ')}` : '';
+  const sql = `SELECT instance_id, execution_id, workflow_id, node_name, node_type, run_index, runs_count, is_last_run, execution_status, execution_time_ms, start_time_ms, start_time, items_out_count, items_out_total_all_runs 
+               FROM execution_nodes ${whereStr} 
+               ORDER BY ${executionId ? 'start_time_ms ASC NULLS LAST, node_name ASC' : 'inserted_at DESC NULLS LAST'} 
+               LIMIT $${paramIndex}`;
+  
   res.json((await pool.query(sql, params)).rows);
 });
 
@@ -1572,28 +1999,44 @@ function parseAndClampTimeRange(from, to) {
 }
 
 /**
- * Check if user has access to a specific instance_id via scopes
+ * Check if user has access to instance-level infrastructure metrics (CPU/RAM/etc).
+ * ADMIN ONLY or users with EXPLICIT instance scope.
+ * Users with only tag/workflow scopes do NOT get instance metrics access.
  */
-async function userHasInstanceAccess(userId, instanceId, permissions) {
-  // Admin with admin:users permission has global access
-  if (permissions.includes('admin:users')) return true;
+async function userHasInstanceMetricsAccess(req, instanceId) {
+  const authz = await getAuthorizationContext(req, { instanceFilter: instanceId });
   
-  // Check if user has scope for this instance
-  const scope = await getUserScope(userId);
+  // Admin has full access to instance metrics
+  if (authz.isAdmin) return { hasAccess: true, level: 'admin' };
   
-  // If user has no scope rows, they have no instance access (default-deny)
-  if (!scope.hasAnyScopeRows) return false;
+  // Non-admin: must have EXPLICIT instance scope (not just tag/workflow scope)
+  if (!authz.hasAnyScopeRows) return { hasAccess: false, level: 'none' };
   
-  // Check if instance_id is in user's allowed instances
-  return scope.instanceIds.includes(instanceId);
+  // User must have explicit instance scope to access instance metrics
+  // Tag-only or workflow-only scopes do NOT grant instance metrics access
+  if (!authz.hasExplicitInstanceScope) {
+    return { hasAccess: false, level: 'none' };
+  }
+  
+  // Check if user has access to this specific instance
+  if (authz.hasGlobalInstanceScope || authz.scopedInstanceIds?.includes(instanceId)) {
+    return { hasAccess: true, level: 'instance' };
+  }
+  
+  return { hasAccess: false, level: 'none' };
 }
 
 /**
- * Get all instance_ids the user has access to
+ * Get all instance_ids the user has access to for instance metrics.
+ * Admin: all instances
+ * Non-admin with explicit instance scope: those instances only
+ * Non-admin with only tag/workflow scopes: empty (no instance metrics access)
  */
-async function getUserAllowedInstances(userId, permissions) {
+async function getUserAllowedInstancesForMetrics(req) {
+  const authz = await getAuthorizationContext(req);
+  
   // Admin has global access - return all instances ordered by most recent activity
-  if (permissions.includes('admin:users')) {
+  if (authz.isAdmin) {
     const { rows } = await pool.query(
       `SELECT instance_id, MAX(ts) as last_activity
        FROM n8n_metrics_snapshot 
@@ -1604,14 +2047,36 @@ async function getUserAllowedInstances(userId, permissions) {
     return rows.map(r => r.instance_id);
   }
   
-  // Get user's scoped instances
-  const scope = await getUserScope(userId);
-  return scope.instanceIds;
+  // Non-admin must have EXPLICIT instance scope for instance metrics
+  // Users with only tag/workflow scopes get NO instance metrics access
+  if (!authz.hasExplicitInstanceScope) {
+    return [];
+  }
+  
+  // Non-admin with global explicit instance scope
+  if (authz.hasGlobalInstanceScope) {
+    // Global instance scope = all instances
+    const { rows } = await pool.query(
+      `SELECT instance_id, MAX(ts) as last_activity
+       FROM n8n_metrics_snapshot 
+       WHERE instance_id IS NOT NULL 
+       GROUP BY instance_id
+       ORDER BY last_activity DESC`
+    );
+    return rows.map(r => r.instance_id);
+  }
+  
+  // Return only explicitly scoped instances
+  return authz.scopedInstanceIds || [];
 }
 
 /**
  * GET /api/metrics/config
  * Returns metrics feature configuration (for frontend feature flag)
+ * 
+ * NOTE: canCustomizeDashboard is granted to ALL authenticated users.
+ * This allows personal UI customization (widget toggles) without granting
+ * admin-level metrics.manage permission. Instance metrics remain admin-only.
  */
 app.get('/api/metrics/config', requireAuth, async (req, res) => {
   const permissions = await getUserPermissions(req.user.sub);
@@ -1620,6 +2085,9 @@ app.get('/api/metrics/config', requireAuth, async (req, res) => {
     hasVersionPermission: permissions.includes('metrics.read.version'),
     hasFullPermission: permissions.includes('metrics.read.full'),
     hasManagePermission: permissions.includes('metrics.manage'),
+    // canCustomizeDashboard: any authenticated user can personalize their dashboard view
+    // This is separate from hasManagePermission which is for global/admin configuration
+    canCustomizeDashboard: true,
     maxTimeRangeDays: METRICS_MAX_TIME_RANGE_DAYS,
     maxDatapoints: METRICS_MAX_DATAPOINTS,
   });
@@ -1627,9 +2095,12 @@ app.get('/api/metrics/config', requireAuth, async (req, res) => {
 
 /**
  * GET /api/metrics/instances
- * Returns list of instances the user has access to
+ * Returns list of instances the user has access to for instance metrics.
+ * - Admin: all instances
+ * - Users with explicit instance scope: those instances
+ * - Users with only tag/workflow scopes: empty array (no instance metrics)
  */
-app.get('/api/metrics/instances', requireAuth, metricsLimiter, async (req, res) => {
+app.get('/api/metrics/instances', requireAuth, metricsLimiter, attachAuthz, async (req, res) => {
   if (!METRICS_ENABLED) {
     return res.json({ enabled: false, instances: [] });
   }
@@ -1640,7 +2111,7 @@ app.get('/api/metrics/instances', requireAuth, metricsLimiter, async (req, res) 
   }
   
   try {
-    const instances = await getUserAllowedInstances(req.user.sub, permissions);
+    const instances = await getUserAllowedInstancesForMetrics(req);
     res.json({ enabled: true, instances });
   } catch (err) {
     console.error('Metrics instances error:', err.message);
@@ -1651,10 +2122,11 @@ app.get('/api/metrics/instances', requireAuth, metricsLimiter, async (req, res) 
 /**
  * GET /api/metrics/latest?instance_id=...
  * Returns the latest metrics snapshot for an instance
- * - Admin/Analyst: full metrics
- * - Viewer: only version info
+ * - Admin: full metrics
+ * - Users with explicit instance scope: full metrics
+ * - Users with only tag/workflow scopes: NO ACCESS (403)
  */
-app.get('/api/metrics/latest', requireAuth, metricsLimiter, attachScope, async (req, res) => {
+app.get('/api/metrics/latest', requireAuth, metricsLimiter, attachAuthz, async (req, res) => {
   // Feature flag check
   if (!METRICS_ENABLED) {
     return res.json({ enabled: false });
@@ -1685,14 +2157,14 @@ app.get('/api/metrics/latest', requireAuth, metricsLimiter, attachScope, async (
     return res.status(403).json({ error: 'No metrics permission' });
   }
   
-  // Check instance scope (authorization)
-  const hasAccess = await userHasInstanceAccess(req.user.sub, instanceId, permissions);
-  if (!hasAccess) {
+  // Check instance metrics access (admin or explicit instance scope required)
+  const accessCheck = await userHasInstanceMetricsAccess(req, instanceId);
+  if (!accessCheck.hasAccess) {
     await logAudit('metrics_access_denied', { 
       ...getAuditContext(req), 
       metadata: { reason: 'no_instance_scope', instanceId } 
     });
-    return res.status(403).json({ error: 'No access to this instance' });
+    return res.status(403).json({ error: 'No access to instance metrics. Tag/workflow scopes do not grant instance-level access.' });
   }
   
   try {
@@ -1725,8 +2197,9 @@ app.get('/api/metrics/latest', requireAuth, metricsLimiter, attachScope, async (
  * GET /api/metrics/timeseries?instance_id=...&from=...&to=...
  * Returns time series metrics for charts
  * CPU rate is computed as delta(cpu_total_seconds)/delta(time_seconds)
+ * ADMIN ONLY or users with explicit instance scope
  */
-app.get('/api/metrics/timeseries', requireAuth, metricsLimiter, attachScope, async (req, res) => {
+app.get('/api/metrics/timeseries', requireAuth, metricsLimiter, attachAuthz, async (req, res) => {
   // Feature flag check
   if (!METRICS_ENABLED) {
     return res.json({ enabled: false });
@@ -1760,14 +2233,14 @@ app.get('/api/metrics/timeseries', requireAuth, metricsLimiter, attachScope, asy
     return res.status(403).json({ error: 'Full metrics permission required for timeseries' });
   }
   
-  // Check instance scope
-  const hasAccess = await userHasInstanceAccess(req.user.sub, instanceId, permissions);
-  if (!hasAccess) {
+  // Check instance metrics access (admin or explicit instance scope required)
+  const accessCheck = await userHasInstanceMetricsAccess(req, instanceId);
+  if (!accessCheck.hasAccess) {
     await logAudit('metrics_access_denied', { 
       ...getAuditContext(req), 
       metadata: { reason: 'no_instance_scope', instanceId } 
     });
-    return res.status(403).json({ error: 'No access to this instance' });
+    return res.status(403).json({ error: 'No access to instance metrics. Tag/workflow scopes do not grant instance-level access.' });
   }
   
   try {
@@ -1825,8 +2298,10 @@ app.get('/api/metrics/timeseries', requireAuth, metricsLimiter, attachScope, asy
 /**
  * GET /api/workflows/status?instance_id=...
  * Returns workflow status (active/inactive) for an instance
+ * - Admin: all workflows in instance
+ * - Scoped users: only workflows allowed by their tag/workflow scopes
  */
-app.get('/api/workflows/status', requireAuth, metricsLimiter, attachScope, async (req, res) => {
+app.get('/api/workflows/status', requireAuth, metricsLimiter, attachAuthz, async (req, res) => {
   const instanceId = req.query.instance_id;
   
   // Validate instance_id
@@ -1841,23 +2316,56 @@ app.get('/api/workflows/status', requireAuth, metricsLimiter, attachScope, async
     return res.status(403).json({ error: 'No workflows permission' });
   }
   
-  // Check instance scope (non-admin users need scope)
-  if (!permissions.includes('admin:users')) {
-    const scope = await getUserScope(req.user.sub);
-    if (!scope.instanceIds.includes(instanceId)) {
-      return res.status(403).json({ error: 'No access to this instance' });
-    }
+  // Get authorization context with instance filter
+  const authz = await getAuthorizationContext(req, { instanceFilter: instanceId });
+  
+  // Default deny for non-admin with no scopes
+  if (!authz.isAdmin && !authz.hasAnyScopeRows) {
+    return res.json({
+      instanceId,
+      total: 0,
+      active: 0,
+      inactive: 0,
+      workflows: [],
+    });
   }
   
   try {
-    const { rows } = await pool.query(
-      `SELECT workflow_id, name, active 
-       FROM workflows_index 
-       WHERE instance_id = $1 
-       ORDER BY name ASC
-       LIMIT 1000`,
-      [instanceId]
-    );
+    let rows;
+    
+    if (authz.isAdmin) {
+      // Admin: all workflows in instance
+      const result = await pool.query(
+        `SELECT workflow_id, name, active 
+         FROM workflows_index 
+         WHERE instance_id = $1 
+         ORDER BY name ASC
+         LIMIT 1000`,
+        [instanceId]
+      );
+      rows = result.rows;
+    } else {
+      // Scoped user: only allowed workflows
+      if (authz.allowedWorkflowIds.length === 0) {
+        return res.json({
+          instanceId,
+          total: 0,
+          active: 0,
+          inactive: 0,
+          workflows: [],
+        });
+      }
+      
+      const result = await pool.query(
+        `SELECT workflow_id, name, active 
+         FROM workflows_index 
+         WHERE instance_id = $1 AND workflow_id = ANY($2::text[])
+         ORDER BY name ASC
+         LIMIT 1000`,
+        [instanceId, authz.allowedWorkflowIds]
+      );
+      rows = result.rows;
+    }
     
     res.json({
       instanceId,
@@ -1910,7 +2418,6 @@ const server = app.listen(port, async () => {
   console.log(`n8n Pulse API listening on :${port}`);
   console.log(`Environment: ${APP_ENV}`);
   await autoInit();
-  if (RETENTION_ENABLED) console.log(`Retention: ${RETENTION_DAYS} days, daily at ${RETENTION_RUN_AT} ${RETENTION_TZ}`);
-  if (METRICS_ENABLED) console.log(`Metrics: enabled (max ${METRICS_MAX_TIME_RANGE_DAYS} days, ${METRICS_MAX_DATAPOINTS} datapoints)`);
+  if (RETENTION_ENABLED) console.log(`Retention: ${process.env.RETENTION_DAYS || 90} days, daily at ${process.env.RETENTION_RUN_AT || '03:30'} ${tz}`);  if (METRICS_ENABLED) console.log(`Metrics: enabled (max ${METRICS_MAX_TIME_RANGE_DAYS} days, ${METRICS_MAX_DATAPOINTS} datapoints)`);
   else console.log('Metrics: disabled');
 });

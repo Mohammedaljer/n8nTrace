@@ -41,7 +41,11 @@ export default function DashboardPage() {
     loadMetricsConfig();
   }, []);
 
-  // Only show Customize button if user has admin permission
+  // canCustomizeDashboard is now granted to ALL authenticated users (from metrics config)
+  // This allows personal UI customization without requiring admin permissions
+  const canCustomize = metricsConfig?.canCustomizeDashboard ?? false;
+  
+  // Only admins can access instance-level metrics (CPU/RAM/etc.)
   const canAdmin =
     state.status === "authenticated" && state.permissions.includes("admin:users");
 
@@ -141,7 +145,7 @@ export default function DashboardPage() {
         </Button>
       )}
 
-      {canAdmin && (
+      {canCustomize && (
         <Button
           variant={isCustomizing ? "default" : "outline"}
           size="sm"

@@ -129,6 +129,7 @@ docker-compose*.yaml
 !/backend/README.md
 # Env backups
 .env.bak
+Build.md
 
 # Local DB/volumes if you use them
 data/
