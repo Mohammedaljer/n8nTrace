@@ -12,13 +12,13 @@ FROM node:24-alpine AS runtime
 RUN apk add --no-cache curl
 
 WORKDIR /app
-
 # Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy app files (ensure ownership for non-root user)
 COPY --chown=node:node package*.json ./
 COPY --chown=node:node index.js ./
+COPY --chown=node:node src ./src 
 COPY --chown=node:node migrations ./migrations
 
 # Do NOT copy .env, .env.*, or any secret files

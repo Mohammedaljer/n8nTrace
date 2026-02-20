@@ -1,0 +1,262 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        32,
+        688
+      ],
+      "id": "1e255e04-4102-4059-ac17-88aaec5b25ab",
+      "name": "Manual Trigger — Collect Metrics"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8ebd10c8-26ee-431b-aa4c-a0fae1dee5e4",
+              "name": "INSTANCE_ID",
+              "value": "prod",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        608
+      ],
+      "id": "4c420afd-8d2f-4730-9926-b83b5c196c59",
+      "name": "Set Instance Context"
+    },
+    {
+      "parameters": {
+        "jsCode": "const INSTANCE_ID = $('Set Instance Context').first().json.INSTANCE_ID;\n\nconst inItem = $input.first().json;\nconst raw = inItem.data ?? '';\n\nif (typeof raw !== 'string' || raw.length === 0) {\n  return [{ json: { error: 'No metrics text found in $json.data', gotType: typeof raw } }];\n}\nconst text = raw.includes('\\\\n') ? raw.replace(/\\\\n/g, '\\n') : raw;\nconst samples = [];\nconst helpByName = new Map();\nconst typeByName = new Map();\n\nfunction parseLabels(labelsStr) {\n  if (!labelsStr) return {};\n  const parts = labelsStr.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/);\n  const labels = {};\n  for (const part of parts) {\n    const p = part.trim();\n    if (!p) continue;\n    const eq = p.indexOf('=');\n    if (eq === -1) continue;\n    const key = p.slice(0, eq).trim();\n    let val = p.slice(eq + 1).trim();\n    val = val.replace(/^\"|\"$/g, '');   // remove surrounding quotes\n    val = val.replace(/\\\\\"/g, '\"');    // unescape quotes\n    val = val.replace(/\\\\\\\\/g, '\\\\');  // unescape backslash\n    labels[key] = val;\n  }\n  return labels;\n}\n\nconst lines = text.split('\\n');\n\nfor (const line of lines) {\n  const l = line.trim();\n  if (!l) continue;\n\n  if (l.startsWith('# HELP ')) {\n    const m = l.match(/^# HELP ([^\\s]+)\\s+(.+)$/);\n    if (m) helpByName.set(m[1], m[2]);\n    continue;\n  }\n\n  if (l.startsWith('# TYPE ')) {\n    const m = l.match(/^# TYPE ([^\\s]+)\\s+([^\\s]+)$/);\n    if (m) typeByName.set(m[1], m[2]);\n    continue;\n  }\n\n  if (l.startsWith('#')) continue;\n  const m = l.match(\n    /^([a-zA-Z_:][a-zA-Z0-9_:]*)(\\{([^}]*)\\})?\\s+([+-]?\\d+(\\.\\d+)?([eE][+-]?\\d+)?)(\\s+(\\d+))?$/\n  );\n  if (!m) continue;\n\n  const name = m[1];\n  const labelsStr = m[3] || '';\n  const value = Number(m[4]);\n  const ts = m[8] ? Number(m[8]) : null;\n\n  samples.push({\n    name,\n    labels: parseLabels(labelsStr),\n    value: Number.isFinite(value) ? value : null,\n    type: typeByName.get(name) ?? null,\n    help: helpByName.get(name) ?? null,\n    sample_timestamp: ts,\n  });\n}\n\nfunction pickValue(metricName) {\n  const s = samples.find(x => x.name === metricName && Object.keys(x.labels).length === 0);\n  return s?.value ?? null;\n}\n\nfunction pickLabels(metricName) {\n  const s = samples.find(x => x.name === metricName);\n  return s?.labels ?? null;\n}\n\nconst n8nVersionLabels = pickLabels('n8n_version_info');\nconst nodeVersionLabels = pickLabels('n8n_nodejs_version_info');\n\nconst out = {\n  INSTANCE_ID,\n  timestamp: new Date().toISOString(),\n  INSTANCE_ID,\n\n  n8n_version: n8nVersionLabels?.version ?? null,\n  node_version: nodeVersionLabels?.version ?? null,\n\n  process_start_time_seconds: pickValue('n8n_process_start_time_seconds'),\n\n  cpu_total_seconds: pickValue('n8n_process_cpu_seconds_total'),\n  cpu_user_seconds: pickValue('n8n_process_cpu_user_seconds_total'),\n  cpu_system_seconds: pickValue('n8n_process_cpu_system_seconds_total'),\n\n  memory_rss_bytes: pickValue('n8n_process_resident_memory_bytes'),\n  heap_used_bytes: pickValue('n8n_nodejs_heap_size_used_bytes'),\n  external_memory_bytes: pickValue('n8n_nodejs_external_memory_bytes'),\n\n  eventloop_lag_p99_s: pickValue('n8n_nodejs_eventloop_lag_p99_seconds'),\n  open_fds: pickValue('n8n_process_open_fds'),\n\n  active_workflows: pickValue('n8n_active_workflow_count'),\n  is_leader: pickValue('n8n_instance_role_leader') === 1,\n\n  samplesCount: samples.length,\n  samples,\n};\n\nreturn [{ json: out }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        608
+      ],
+      "id": "0cafc1b7-7f80-4de6-94da-67d97a6ba47e",
+      "name": "Parse Metrics → Snapshot Model"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.n8n_metrics_snapshot\n(ts, instance_id, n8n_version, node_version,\n process_start_time_seconds,\n is_leader, active_workflows,\n cpu_total_seconds, memory_rss_bytes, heap_used_bytes, external_memory_bytes,\n eventloop_lag_p99_s, open_fds)\nVALUES\n($1, $2, $3, $4,\n $5,\n $6, $7,\n $8, $9, $10, $11,\n $12, $13);\n",
+        "options": {
+          "queryReplacement": "=$1 = {{$json.timestamp}}\n\n$2 = {{$json.INSTANCE_ID}}\n\n$3 = {{$json.n8n_version}}\n\n$4 = {{$json.node_version}}\n\n$5 = {{$json.process_start_time_seconds}}\n\n$6 = {{$json.is_leader}}\n\n$7 = {{$json.active_workflows}}\n\n$8 = {{$json.cpu_total_seconds}}\n\n$9 = {{$json.memory_rss_bytes}}\n\n$10 = {{$json.heap_used_bytes}}\n\n$11 = {{$json.external_memory_bytes}}\n\n$12 = {{$json.eventloop_lag_p99_s}}\n\n$13 = {{$json.open_fds}}\n"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1168,
+        608
+      ],
+      "id": "d82e1637-4ed8-457e-a82b-fdfeab7f8255",
+      "name": "Insert Metrics Snapshot"
+    },
+    {
+      "parameters": {
+        "content": "## Metrics — Collect & Store Instance Snapshot\n\nThis workflow collects runtime metrics from the n8n instance\nvia the Prometheus endpoint and stores normalized snapshots\nin Pulse for dashboards and historical analysis.\n\nIncludes:\n- Instance metrics (CPU, memory, event loop)\n- Execution counters and rates\n- Health indicators\n\nRuns periodically per instance.\n",
+        "height": 448,
+        "width": 416
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -128,
+        -176
+      ],
+      "typeVersion": 1,
+      "id": "8653759f-28aa-4fa7-8acd-4003b51bfb96",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Fetch Metrics\n\nCalls the n8n `/metrics` endpoint and retrieves raw\nPrometheus metrics exposed by the instance.\n\nThese metrics reflect current runtime state and\nexecution activity.\n",
+        "height": 576,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        576,
+        288
+      ],
+      "typeVersion": 1,
+      "id": "04902ad9-7b90-478b-97b6-f83a0720a234",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Parse Metrics\n\nTransforms raw Prometheus text into structured fields\nused by Pulse dashboards.\n\nExtracts key indicators such as:\n\n- CPU usage\n- Memory consumption\n- Event loop lag\n- Execution counts\n",
+        "height": 576,
+        "width": 256,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        832,
+        288
+      ],
+      "typeVersion": 1,
+      "id": "8c13c08e-79a8-450c-9489-ac44e9bb50aa",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## Store Snapshot\n\nInserts a timestamped metrics snapshot into the database.\n\nSnapshots enable:\n\n- Time series graphs\n- Performance analysis\n- Capacity monitoring\n",
+        "height": 576,
+        "width": 256,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1104,
+        288
+      ],
+      "typeVersion": 1,
+      "id": "f74fe5fb-8b02-436b-ac59-0b9ab9cb99d2",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Instance Selection\n\nDefines which environment this workflow reports metrics for.\n\nSet this value to match the current n8n instance\n(e.g. prod, dev, test).\n\nMetrics and snapshots will be tagged with this identifier\nso dashboards can separate environments correctly.\n",
+        "height": 576,
+        "width": 256,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        304,
+        288
+      ],
+      "typeVersion": 1,
+      "id": "63ead822-a7e8-4e43-b8b5-ddab98adef90",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "### Triggers\nRun every 5 Minutes (schedule) or via manual test. Both paths go into the same flow.",
+        "height": 576,
+        "width": 416,
+        "color": 7
+      },
+      "id": "311bb9d7-863d-4e1e-87c9-7f62e6d02382",
+      "name": "Sticky Note6",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -128,
+        288
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "0147e79a-6934-47ba-9c73-b8a9c37679be",
+      "name": "Run every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        32,
+        528
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "url": "https://<your-n8n-url>/metrics",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        624,
+        608
+      ],
+      "id": "5e90f6dc-8883-4b3a-8b7b-961cc849bc67",
+      "name": "HTTP Request"
+    }
+  ],
+  "connections": {
+    "Manual Trigger — Collect Metrics": {
+      "main": [
+        [
+          {
+            "node": "Set Instance Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Instance Context": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Metrics → Snapshot Model": {
+      "main": [
+        [
+          {
+            "node": "Insert Metrics Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Set Instance Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Parse Metrics → Snapshot Model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "2721d54221ce6ed8acbe679055a305e1cfd684c903a6976c74b855a20b541e3b"
+  }
+}

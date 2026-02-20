@@ -19,7 +19,7 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     container_name: n8n_pulse_postgres
     restart: unless-stopped
     environment:
@@ -44,7 +44,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: mohammedaljer/n8n_pulse_backend:v1.3.0
+    image: mohammedaljer/n8n_pulse_backend:v1.3.2
     container_name: n8n_pulse_backend
     restart: unless-stopped
     environment:
@@ -87,7 +87,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: mohammedaljer/n8n_pulse_frontend:v1.3.0
+    image: mohammedaljer/n8n_pulse_frontend:v1.3.2
     container_name: n8n_pulse_frontend
     restart: unless-stopped
     ports:

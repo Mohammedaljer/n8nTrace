@@ -2,6 +2,40 @@
 
 Deploy n8n Pulse securely in production.
 
+<!-- TOC -->
+
+- [Production Deployment](#production-deployment)
+  - [Architecture](#architecture)
+  - [Quick Start](#quick-start)
+    - [Option 1: Build from Source](#option-1-build-from-source)
+    - [Option 2: Pre-built Images (Portainer)](#option-2-pre-built-images-portainer)
+  - [Environment Variables Reference](#environment-variables-reference)
+    - [Required Secrets](#required-secrets)
+    - [Application Settings](#application-settings)
+    - [Cookie \& Session Security](#cookie--session-security)
+    - [Proxy Configuration](#proxy-configuration)
+    - [Privacy \& GDPR](#privacy--gdpr)
+    - [n8n Data Ingestion](#n8n-data-ingestion)
+    - [Metrics Feature](#metrics-feature)
+    - [Data Retention](#data-retention)
+    - [Database (Advanced)](#database-advanced)
+  - [Portainer Deployment](#portainer-deployment)
+  - [Reverse Proxy Setup](#reverse-proxy-setup)
+    - [nginx Example](#nginx-example)
+    - [Traefik Labels](#traefik-labels)
+  - [Docker Image Tags](#docker-image-tags)
+  - [Production Checklist](#production-checklist)
+    - [Secrets (Runtime Only—Never Commit)](#secrets-runtime-onlynever-commit)
+    - [Security Configuration](#security-configuration)
+    - [Infrastructure](#infrastructure)
+  - [Health Checks](#health-checks)
+  - [Backup \& Restore](#backup--restore)
+    - [Backup](#backup)
+    - [Restore](#restore)
+    - [Automated Backups](#automated-backups)
+
+<!-- /TOC -->
+
 ## Architecture
 
 <p align="center">

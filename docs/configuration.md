@@ -2,6 +2,26 @@
 
 All configuration is via environment variables. Never commit real secrets.
 
+<!-- TOC -->
+
+- [Configuration Reference](#configuration-reference)
+    - [Required Variables](#required-variables)
+    - [Application](#application)
+    - [Security](#security)
+    - [Privacy / GDPR](#privacy--gdpr)
+    - [Authentication](#authentication)
+        - [First Admin Creation](#first-admin-creation)
+    - [n8n Ingestion Optional](#n8n-ingestion-optional)
+    - [Metrics Feature Optional](#metrics-feature-optional)
+    - [Data Retention Optional](#data-retention-optional)
+        - [What Retention Deletes](#what-retention-deletes)
+        - [What Retention Does NOT Touch](#what-retention-does-not-touch)
+        - [Safety Guarantees](#safety-guarantees)
+    - [Database](#database)
+    - [Example .env File](#example-env-file)
+
+<!-- /TOC -->
+
 ## Required Variables
 
 | Variable | Description |

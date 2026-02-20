@@ -2,6 +2,21 @@
 
 n8n Pulse uses role-based access control to manage what users can see and do.
 
+<!-- TOC -->
+
+- [Roles \& Permissions (RBAC)](#roles--permissions-rbac)
+  - [Roles Overview](#roles-overview)
+  - [Permissions by Role](#permissions-by-role)
+  - [Instance Scoping](#instance-scoping)
+    - [How Scoping Works](#how-scoping-works)
+  - [Metrics Permissions](#metrics-permissions)
+  - [Managing Users (Admin)](#managing-users-admin)
+  - [Managing Groups (Admin)](#managing-groups-admin)
+  - [First Admin](#first-admin)
+
+<!-- /TOC -->
+
+
 ## Roles Overview
 
 | Role | Description | Use Case |

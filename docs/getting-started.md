@@ -1,3 +1,17 @@
+<!-- TOC -->
+
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Quick Start (Docker)](#quick-start-docker)
+  - [First Run Setup](#first-run-setup)
+  - [Local Development (without Docker)](#local-development-without-docker)
+    - [Backend](#backend)
+    - [Frontend](#frontend)
+  - [Verify Installation](#verify-installation)
+  - [Next Steps](#next-steps)
+
+<!-- /TOC -->
+
 # Getting Started
 
 Get n8n Pulse running locally in minutes.

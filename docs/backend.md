@@ -4,15 +4,63 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
 
 ## Table of Contents
 
-- [Technology Stack](#technology-stack)
-- [Project Structure](#project-structure)
-- [Database Schema](#database-schema)
-- [Migrations](#migrations)
-- [API Endpoints](#api-endpoints)
-- [Authentication Flow](#authentication-flow)
-- [n8n Data Ingestion](#n8n-data-ingestion)
-- [Building & Running](#building--running)
+<!-- TOC -->
 
+- [Backend Architecture](#backend-architecture)
+  - [Table of Contents](#table-of-contents)
+  - [Technology Stack](#technology-stack)
+  - [Project Structure](#project-structure)
+  - [Module Architecture](#module-architecture)
+  - [Database Schema](#database-schema)
+    - [Primary Keys Summary](#primary-keys-summary)
+    - [Core Tables](#core-tables)
+      - [`app_users` - User accounts](#app_users---user-accounts)
+      - [`groups` - RBAC groups](#groups---rbac-groups)
+      - [`roles` - Permission roles (admin, analyst, viewer)](#roles---permission-roles-admin-analyst-viewer)
+      - [`permissions` - Granular permissions](#permissions---granular-permissions)
+    - [n8n Data Tables (populated by PULSE\_INGEST\_USER)](#n8n-data-tables-populated-by-pulse_ingest_user)
+      - [`workflows_index` - Workflow metadata](#workflows_index---workflow-metadata)
+      - [`executions` - Workflow execution records](#executions---workflow-execution-records)
+      - [`execution_nodes` - Node-level execution details](#execution_nodes---node-level-execution-details)
+      - [`n8n_metrics_snapshot` - Instance health metrics](#n8n_metrics_snapshot---instance-health-metrics)
+    - [RBAC Join Tables](#rbac-join-tables)
+    - [Security Tables](#security-tables)
+      - [`audit_log` - Security event log](#audit_log---security-event-log)
+      - [`password_reset_tokens` - Password reset flow](#password_reset_tokens---password-reset-flow)
+  - [Migrations](#migrations)
+    - [Migration Files](#migration-files)
+    - [Manual Migration Commands](#manual-migration-commands)
+  - [Migrations](#migrations-1)
+    - [Migration Files](#migration-files-1)
+    - [Manual Migration Commands](#manual-migration-commands-1)
+  - [API Endpoints](#api-endpoints)
+    - [Health](#health)
+    - [Setup (First Run)](#setup-first-run)
+    - [Authentication](#authentication)
+    - [Data (Scope-filtered)](#data-scope-filtered)
+    - [Metrics](#metrics)
+    - [Admin (Admin role required)](#admin-admin-role-required)
+  - [RBAC (Role-Based Access Control)](#rbac-role-based-access-control)
+    - [Scope Types](#scope-types)
+    - [Tag Matching](#tag-matching)
+    - [Authorization Flow](#authorization-flow)
+    - [Per-Request Caching](#per-request-caching)
+  - [Authentication Flow](#authentication-flow)
+    - [Token Invalidation](#token-invalidation)
+  - [n8n Data Ingestion](#n8n-data-ingestion)
+    - [PULSE\_INGEST\_USER](#pulse_ingest_user)
+    - [How n8n Sends Data](#how-n8n-sends-data)
+    - [Environment Variables for Ingestion](#environment-variables-for-ingestion)
+  - [Building \& Running](#building--running)
+    - [Local Development](#local-development)
+    - [Docker Build](#docker-build)
+    - [Docker Compose](#docker-compose)
+    - [Health Check](#health-check)
+  - [Environment Variables](#environment-variables)
+    - [Required](#required)
+    - [Optional](#optional)
+
+<!-- /TOC -->
 ---
 
 ## Technology Stack
@@ -35,19 +83,62 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
 
 ```
 backend/
-├── index.js              # Main application entry point
-├── package.json          # Dependencies and scripts
-├── Dockerfile            # Production Docker image
-├── .dockerignore         # Docker build exclusions
-├── migrations/           # Database migrations
+├── index.js                    # Entry point (loads src/server.js)
+├── package.json                # Dependencies and scripts
+├── Dockerfile                  # Production Docker image
+├── .dockerignore               # Docker build exclusions
+│
+├── src/                        # Application source code
+│   ├── app.js                  # Express app factory
+│   ├── server.js               # Server startup & initialization
+│   │
+│   ├── config/                 # Configuration
+│   │   ├── index.js            # Main config exports
+│   │   └── env.js              # Environment variable parsing
+│   │
+│   ├── db/                     # Database
+│   │   ├── pool.js             # PostgreSQL connection pool
+│   │   └── autoInit.js         # Auto-migration & seeding
+│   │
+│   ├── middleware/             # Express middleware
+│   │   ├── auth.js             # JWT auth, permissions, session mgmt
+│   │   ├── csrf.js             # CSRF protection
+│   │   └── rateLimiters.js     # Rate limiting configs
+│   │
+│   ├── services/               # Business logic
+│   │   ├── audit.js            # Audit logging
+│   │   ├── authz.js            # RBAC authorization & scopes
+│   │   ├── retention.js        # Data retention cleanup
+│   │   └── passwordTokens.js   # Password reset tokens
+│   │
+│   ├── routes/                 # API route handlers
+│   │   ├── health.js           # Health check endpoints
+│   │   ├── setup.js            # Initial setup flow
+│   │   ├── auth.js             # Authentication endpoints
+│   │   ├── data.js             # Workflows, executions, nodes
+│   │   ├── admin.js            # Admin user/group management
+│   │   └── metrics.js          # Instance metrics endpoints
+│   │
+│   └── utils/                  # Utilities
+│       └── sql.js              # SQL query helpers
+│
+├── migrations/                 # Database migrations
 │   ├── 1770649871121_init-schema.js
 │   ├── 1770660000000_add-password-tokens.js
 │   ├── 1770670000000_add-token-version.js
 │   ├── 1770680000000_retention-and-audit.js
 │   ├── 1770690000000_multi-tenant-executions.js
 │   └── 1770700000000_add-metrics-snapshot.js
-└── tests/                # Test files
+│
+└── tests/                      # Test files
+    └── rbac-regression.test.js # RBAC security tests
 ```
+
+
+---
+## Module Architecture
+
+The backend uses a **dependency injection** pattern for clean separation and testability.
 
 ---
 
@@ -113,7 +204,7 @@ instance_id           TEXT NOT NULL
 name                  TEXT NOT NULL
 active                BOOLEAN DEFAULT false
 is_archived           BOOLEAN DEFAULT false
-tags                  TEXT          -- JSON array as text
+tags                  TEXT          -- JSON array as text: '[\"backup\",\"prod\"]'
 nodes_count           INT4
 node_types            TEXT          -- JSON array of node types
 distinct_node_names   TEXT
@@ -177,14 +268,18 @@ FOREIGN KEY (instance_id, execution_id) REFERENCES executions(instance_id, execu
 ```sql
 id                    UUID PRIMARY KEY
 instance_id           TEXT NOT NULL
-snapshot_time         TIMESTAMPTZ NOT NULL
+ts                    TIMESTAMPTZ NOT NULL
 n8n_version           TEXT
-cpu_usage_percent     REAL
-memory_used_mb        REAL
-memory_total_mb       REAL
-event_loop_latency_ms REAL
+node_version          TEXT
+process_start_time_seconds REAL
+is_leader             BOOLEAN
 active_workflows      INT4
-queue_depth           INT4
+cpu_total_seconds     REAL
+memory_rss_bytes      BIGINT
+heap_used_bytes       BIGINT
+external_memory_bytes BIGINT
+eventloop_lag_p99_s   REAL
+open_fds              INT4
 inserted_at           TIMESTAMPTZ DEFAULT now()
 ```
 
@@ -200,11 +295,14 @@ group_roles (group_id UUID, role_id UUID) PRIMARY KEY
 -- Role ↔ Permission mapping
 role_permissions (role_id UUID, permission_id UUID) PRIMARY KEY
 
--- Group instance/workflow scopes
-group_scopes (id UUID, group_id UUID, instance_id TEXT, workflow_id TEXT, tag TEXT)
-
--- User instance/workflow scopes (legacy, prefer group_scopes)
-user_scopes (id UUID, user_id UUID, instance_id TEXT, workflow_id TEXT)
+-- Group scopes (instance/workflow/tag filtering)
+group_scopes (
+  id UUID PRIMARY KEY,
+  group_id UUID REFERENCES groups(id),
+  instance_id TEXT,    -- NULL = all instances (if no tag/workflow)
+  workflow_id TEXT,    -- Specific workflow access
+  tag TEXT             -- Tag-based workflow filtering
+)
 ```
 
 ### Security Tables
@@ -216,7 +314,7 @@ event_type            TEXT NOT NULL  -- 'login', 'logout', 'password_change', et
 actor_id              UUID           -- User who performed action
 target_id             UUID           -- User/resource affected
 details               JSONB          -- Additional context
-ip_address            TEXT           -- Client IP (if AUDIT_LOG_IP_MODE != 'none')
+ip_address            TEXT           -- Client IP (hashed if AUDIT_LOG_IP_MODE=hashed)
 created_at            TIMESTAMPTZ DEFAULT now()
 ```
 
@@ -225,9 +323,40 @@ created_at            TIMESTAMPTZ DEFAULT now()
 id                    UUID PRIMARY KEY
 user_id               UUID REFERENCES app_users(id)
 token_hash            TEXT NOT NULL
+token_type            TEXT NOT NULL  -- 'reset_password', 'invite_set_password'
 expires_at            TIMESTAMPTZ NOT NULL
 used                  BOOLEAN DEFAULT false
 created_at            TIMESTAMPTZ DEFAULT now()
+```
+
+---
+
+## Migrations
+
+Migrations run automatically on backend startup via `src/db/autoInit.js`.
+
+### Migration Files
+
+| Migration | Purpose |
+|-----------|--------|
+| `init-schema` | Core tables: users, RBAC, executions, workflows, nodes |
+| `add-password-tokens` | Password reset token table |
+| `add-token-version` | Session invalidation support |
+| `retention-and-audit` | Audit log + retention tracking tables |
+| `multi-tenant-executions` | Composite PK `(instance_id, execution_id)` for multi-tenant support |
+| `add-metrics-snapshot` | n8n instance metrics table |
+
+### Manual Migration Commands
+
+```bash
+# Run pending migrations
+npm run migrate up
+
+# Rollback last migration
+npm run migrate down
+
+# Create new migration
+npm run migrate:create -- my-migration-name
 ```
 
 ---
@@ -268,66 +397,112 @@ npm run migrate:up:fake
 
 ## API Endpoints
 
-### Authentication
+### Health
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/login` | Login with email/password |
-| POST | `/api/auth/logout` | Logout (clears cookie) |
-| GET | `/api/auth/me` | Get current user info |
-| POST | `/api/auth/refresh` | Refresh JWT token |
-| POST | `/api/auth/forgot-password` | Request password reset |
-| POST | `/api/auth/reset-password` | Reset password with token |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/health` | Database connectivity check | No |
 
 ### Setup (First Run)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/setup/status` | Check if setup is required |
-| POST | `/api/setup` | Create first admin user |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/setup/status` | Check if setup is required | No |
+| POST | `/api/setup` | Create first admin user | No |
 
-### Executions
+### Authentication
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/executions` | List executions (filtered) |
-| GET | `/api/executions/:id` | Get execution details |
-| GET | `/api/executions/stats` | Execution statistics |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/auth/login` | Login with email/password | No |
+| POST | `/api/auth/logout` | Logout (clears cookie) | Yes |
+| GET | `/api/auth/me` | Get current user info | Yes |
+| POST | `/api/auth/change-password` | Change own password | Yes |
+| POST | `/api/auth/forgot-password` | Request password reset | No |
+| POST | `/api/auth/reset-password` | Reset password with token | No |
+| POST | `/api/auth/set-password` | Set password (invite flow) | No |
 
-### Workflows
+### Data (Scope-filtered)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/workflows` | List workflows |
-| GET | `/api/workflows/:id` | Get workflow details |
+| Method | Endpoint | Description | Auth | Permission |
+|--------|----------|-------------|------|------------|
+| GET | `/api/workflows` | List workflows | Yes | `read:workflows` |
+| GET | `/api/workflows/status` | Workflow active/inactive counts | Yes | `read:workflows` |
+| GET | `/api/executions` | List executions | Yes | `read:executions` |
+| GET | `/api/execution-nodes` | Node execution details | Yes | `read:nodes` |
 
 ### Metrics
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/metrics/config` | Metrics feature config |
-| GET | `/api/metrics/instances` | Instance list |
-| GET | `/api/metrics/snapshots` | Metrics data |
+| Method | Endpoint | Description | Auth | Permission |
+|--------|----------|-------------|------|------------|
+| GET | `/api/metrics/config` | Metrics feature config | Yes | - |
+| GET | `/api/metrics/instances` | List accessible instances | Yes | `metrics.read.*` |
+| GET | `/api/metrics/latest` | Latest metrics snapshot | Yes | `metrics.read.*` + instance scope |
+| GET | `/api/metrics/timeseries` | Time series for charts | Yes | `metrics.read.full` + instance scope |
 
 ### Admin (Admin role required)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/admin/users` | List users |
-| POST | `/api/admin/users` | Create/invite user |
-| PATCH | `/api/admin/users/:id` | Update user |
-| DELETE | `/api/admin/users/:id` | Delete user |
-| GET | `/api/admin/groups` | List groups |
-| POST | `/api/admin/groups` | Create group |
-| GET | `/api/admin/audit` | View audit logs |
-| POST | `/api/admin/retention/run` | Trigger retention cleanup |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/admin/users` | List users | Yes |
+| POST | `/api/admin/users` | Create user | Yes |
+| POST | `/api/admin/users/invite` | Invite user via email | Yes |
+| PATCH | `/api/admin/users/:id` | Update user | Yes |
+| DELETE | `/api/admin/users/:id` | Delete user | Yes |
+| GET | `/api/admin/groups` | List groups | Yes |
+| POST | `/api/admin/groups` | Create group | Yes |
+| PATCH | `/api/admin/groups/:id` | Update group | Yes |
+| DELETE | `/api/admin/groups/:id` | Delete group | Yes |
+| GET | `/api/admin/roles` | List roles | Yes |
+| GET | `/api/admin/audit` | View audit logs | Yes |
+| GET | `/api/admin/retention` | Retention status | Yes |
+| POST | `/api/admin/retention/run` | Trigger retention cleanup | Yes |
 
-### Health
+---
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Database connectivity check |
-| GET | `/ready` | Application readiness |
+## RBAC (Role-Based Access Control)
+
+### Scope Types
+
+| Scope | Effect | Instance Metrics |
+|-------|--------|------------------|
+| **Tag** (`tag = 'backup'`) | See workflows with that tag (all instances) | ❌ No access |
+| **Workflow ID** (`workflow_id = 'wf-123'`) | See specific workflow only | ❌ No access |
+| **Instance** (`instance_id = 'prod'`) | See all workflows in instance | ✅ For that instance |
+| **Global** (`instance_id = NULL, tag = NULL, workflow_id = NULL`) | See all workflows | ✅ All instances |
+| **No scopes** | Default deny - see nothing | ❌ No access |
+
+### Tag Matching
+
+Tags are stored as JSON arrays: `'[\"backup\",\"prod\"]'`
+
+Matching uses PostgreSQL JSONB operator for **exact membership**:
+```sql
+WHERE tags::jsonb ?| ARRAY['backup']::text[]
+```
+
+- `backup` matches `[\"backup\"]` ✅
+- `backup` does NOT match `[\"backup2\"]` ✅ (no substring matching)
+
+### Authorization Flow
+
+```
+Request → requireAuth → attachAuthz → getAuthorizationContext()
+                                            │
+                                            ├── Admin? → Return all data
+                                            │
+                                            ├── No scopes? → Return empty (default deny)
+                                            │
+                                            └── Has scopes? → Resolve allowedWorkflowIds
+                                                              │
+                                                              ├── Tag scopes → JSONB match
+                                                              ├── Workflow ID scopes → Direct
+                                                              └── Instance scopes → All in instance
+```
+
+### Per-Request Caching
+
+Authorization context is cached on `req._authzCache` to avoid repeated DB queries within a single request.
 
 ---
 
@@ -342,6 +517,7 @@ npm run migrate:up:fake
 6. Backend validates JWT on each request
 7. If token_version changed (password reset), JWT rejected
 ```
+
 
 ### Token Invalidation
 

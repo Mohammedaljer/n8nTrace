@@ -4,15 +4,45 @@ n8n Pulse frontend is a React single-page application built with Vite, providing
 
 ## Table of Contents
 
-- [Technology Stack](#technology-stack)
-- [Project Structure](#project-structure)
-- [Components Overview](#components-overview)
-- [Routing](#routing)
-- [State Management](#state-management)
-- [API Communication](#api-communication)
-- [Styling & Theming](#styling--theming)
-- [Building & Running](#building--running)
+<!-- TOC -->
 
+- [Frontend Architecture](#frontend-architecture)
+  - [Table of Contents](#table-of-contents)
+  - [Technology Stack](#technology-stack)
+  - [Project Structure](#project-structure)
+  - [Components Overview](#components-overview)
+    - [Layout Components](#layout-components)
+    - [Dashboard Components](#dashboard-components)
+    - [Data Display](#data-display)
+    - [Admin Components](#admin-components)
+  - [Routing](#routing)
+    - [Public Routes](#public-routes)
+    - [Protected Routes (Requires Auth)](#protected-routes-requires-auth)
+    - [Route Guards](#route-guards)
+  - [State Management](#state-management)
+    - [Authentication State](#authentication-state)
+    - [Filter State](#filter-state)
+    - [Data Fetching](#data-fetching)
+  - [API Communication](#api-communication)
+    - [Base Configuration](#base-configuration)
+    - [Authentication](#authentication)
+  - [Styling \& Theming](#styling--theming)
+    - [Tailwind CSS](#tailwind-css)
+    - [Dark Theme](#dark-theme)
+    - [shadcn/ui Components](#shadcnui-components)
+  - [Building \& Running](#building--running)
+    - [Local Development](#local-development)
+    - [Production Build](#production-build)
+    - [Docker Build](#docker-build)
+    - [Docker Compose](#docker-compose)
+  - [nginx Configuration](#nginx-configuration)
+    - [Key Points](#key-points)
+  - [Environment Variables](#environment-variables)
+    - [Build-time (Vite)](#build-time-vite)
+    - [Runtime](#runtime)
+  - [Type Definitions](#type-definitions)
+
+<!-- /TOC -->
 ---
 
 ## Technology Stack

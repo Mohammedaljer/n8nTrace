@@ -1,7 +1,23 @@
 # Troubleshooting
 
 Common issues and solutions.
+<!-- TOC -->
 
+- [Troubleshooting](#troubleshooting)
+  - [Database Not Ready](#database-not-ready)
+  - [Health Check Returns 503](#health-check-returns-503)
+  - [Redirected to /setup When Users Exist](#redirected-to-setup-when-users-exist)
+  - [Login Fails with 401](#login-fails-with-401)
+  - [Cookies Not Being Set](#cookies-not-being-set)
+  - [CORS Errors](#cors-errors)
+  - [Metrics Not Showing](#metrics-not-showing)
+  - [Migrations Failed](#migrations-failed)
+  - [Wrong Client IP in Audit Logs](#wrong-client-ip-in-audit-logs)
+  - [Container Won't Start (Fail-fast)](#container-wont-start-fail-fast)
+  - [Retention Job Not Running](#retention-job-not-running)
+  - [Verification Commands](#verification-commands)
+
+<!-- /TOC -->
 ## Database Not Ready
 
 **Symptom**: Backend fails to start, logs show database connection errors.

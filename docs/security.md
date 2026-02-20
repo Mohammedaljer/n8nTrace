@@ -1,9 +1,34 @@
-<p align="center">
-  <img src="./images/security-header.svg" alt="Security Guide" width="400">
-</p>
-
 # Security Guide
+<!-- TOC -->
 
+- [Security Guide](#security-guide)
+  - [Secrets Management](#secrets-management)
+    - [Never Commit Secrets](#never-commit-secrets)
+    - [Providing Secrets at Runtime](#providing-secrets-at-runtime)
+  - [Startup Enforcement (Fail-fast)](#startup-enforcement-fail-fast)
+    - [Recommended Hardening (Not Enforced)](#recommended-hardening-not-enforced)
+  - [Audit Logging](#audit-logging)
+    - [What Audit Logs Contain](#what-audit-logs-contain)
+    - [Audit Log Display](#audit-log-display)
+    - [Audit Log IP Modes](#audit-log-ip-modes)
+    - [Hashed Mode (Recommended for Production)](#hashed-mode-recommended-for-production)
+  - [TRUST\_PROXY Setting](#trust_proxy-setting)
+  - [Cookie Security](#cookie-security)
+  - [CORS Configuration](#cors-configuration)
+  - [Database Security](#database-security)
+    - [Ingest User (Least Privilege)](#ingest-user-least-privilege)
+    - [Network Isolation](#network-isolation)
+  - [Rate Limiting](#rate-limiting)
+    - [Implemented Limits](#implemented-limits)
+    - [Rate Limit Response](#rate-limit-response)
+    - [Key Generation](#key-generation)
+  - [Production Security Checklist](#production-security-checklist)
+    - [Required (Enforced at Startup)](#required-enforced-at-startup)
+    - [Required (Manual Verification)](#required-manual-verification)
+    - [Recommended (Privacy \& Hardening)](#recommended-privacy--hardening)
+  - [Security Assessment](#security-assessment)
+
+<!-- /TOC -->
 ## Secrets Management
 
 ### Never Commit Secrets

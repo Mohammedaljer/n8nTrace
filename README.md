@@ -190,6 +190,7 @@ See [Backend Architecture](./docs/backend.md#n8n-data-ingestion) for setup detai
 | [🔒 Security](./docs/security.md) | Secrets, proxy, audit logging, GDPR |
 | [👥 RBAC](./docs/rbac.md) | Roles and permissions |
 | [🔍 Troubleshooting](./docs/troubleshooting.md) | Common issues |
+| [🔄 Workflows](./Workflows/Workflows.md) | n8n Pulse Workflows |
 
 ---
 

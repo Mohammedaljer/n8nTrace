@@ -1,0 +1,85 @@
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const { BCRYPT_ROUNDS } = require('../config');
+
+function createSetupRouter(deps) {
+  const {
+    pool,
+    state,
+    setupLimiter, logAudit, getAuditContext
+  } = deps;
+
+  const router = express.Router();
+
+// ============================================================================
+// ROUTES: SETUP (first-run initial admin)
+// setupRequired = true only when zero users exist. After first admin created, setup is disabled.
+// ============================================================================
+router.get('/api/setup/status', async (req, res) => {
+  if (!state.dbReady) return res.status(503).json({ error: 'Service initializing', setupRequired: false });
+  try {
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS c FROM app_users', []);
+    const count = rows[0]?.c ?? 0;
+    res.json({ setupRequired: count === 0 });
+  } catch (err) {
+    console.error('Setup status error:', err.message);
+    res.status(500).json({ error: 'Internal error', setupRequired: false });
+  }
+});
+
+const WEAK_PASSWORDS = new Set(['password', 'password123', 'admin', '12345678', '1234567890', 'qwerty', 'letmein', 'welcome', 'monkey', 'abc123', 'admin123', 'changeme', 'secret']);
+function isValidEmail(s) {
+  return typeof s === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim()) && s.trim().length <= 255;
+}
+function isPasswordStrongEnough(pwd) {
+  if (typeof pwd !== 'string' || pwd.length < 8) return false;
+  if (WEAK_PASSWORDS.has(pwd.toLowerCase())) return false;
+  return true;
+}
+
+router.post('/api/setup/initial-admin', setupLimiter, async (req, res) => {
+  if (!state.dbReady) return res.status(503).json({ error: 'Service initializing' });
+  const { email, password, name } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Invalid email format' });
+  if (!isPasswordStrongEnough(password)) return res.status(400).json({ error: 'Password must be at least 8 characters and not a common weak password' });
+
+  try {
+    const { rows: countRows } = await pool.query('SELECT COUNT(*)::int AS c FROM app_users', []);
+    if (countRows[0]?.c !== 0) {
+      return res.status(403).json({ error: 'Setup already completed' });
+    }
+    const cleanEmail = String(email).toLowerCase().trim();
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const ins = await client.query(
+        `INSERT INTO app_users (email, password_hash, is_active, token_version) VALUES ($1, $2, true, 0) RETURNING id`,
+        [cleanEmail, passwordHash]
+      );
+      const userId = ins.rows[0].id;
+      const adminsGrp = await client.query(`SELECT id FROM groups WHERE name = 'Admins'`);
+      if (adminsGrp.rows.length > 0) {
+        await client.query(`INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [userId, adminsGrp.rows[0].id]);
+      }
+      await client.query('COMMIT');
+      await logAudit('setup_initial_admin_created', { ...getAuditContext(req), targetType: 'user', targetId: userId, metadata: { email: cleanEmail } });
+      res.status(201).json({ ok: true, message: 'Initial admin created' });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      if (e?.code === '23505') return res.status(409).json({ error: 'Email already exists' });
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Setup initial-admin error:', err.message);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+  return router;
+}
+
+module.exports = { createSetupRouter };

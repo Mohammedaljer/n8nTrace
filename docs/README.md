@@ -22,6 +22,7 @@
 | [Security](./security.md) | Secrets, proxy settings, audit logging |
 | [RBAC](./rbac.md) | Roles and permissions |
 | [Troubleshooting](./troubleshooting.md) | Common issues and solutions |
+| [Workflows](../Workflows/Workflows.md) | n8n Pulse Workflows |
 
 
 ## Architecture Overview
