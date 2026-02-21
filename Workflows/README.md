@@ -1,7 +1,7 @@
 
 
 <p align="center">
-  <img src="../Docs/images/n8n-pulse-logo.svg" alt="n8n Pulse" width="100" height="100">
+  <img src="../docs/images/n8n-pulse-logo.svg" alt="n8n Pulse" width="100" height="100">
 </p>
 <h1 align="center">n8n Pulse Workflows</h1>
 
