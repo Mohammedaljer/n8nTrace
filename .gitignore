@@ -124,7 +124,7 @@ docker-compose*.yaml
 .env.bak
 Build.md
 !Workflows/
-!Workflows/Workflows.md
+!Workflows/README.md
 # Local DB/volumes if you use them
 data/
 volumes/
