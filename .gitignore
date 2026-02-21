@@ -102,13 +102,6 @@ venv/
 .vercel
 .ipynb_checkpoints/
 -e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
--e 
 
 # Ignore all docker compose files...
 docker-compose*.yml
@@ -130,7 +123,8 @@ docker-compose*.yaml
 # Env backups
 .env.bak
 Build.md
-
+!Workflows/
+!Workflows/Workflows.md
 # Local DB/volumes if you use them
 data/
 volumes/
