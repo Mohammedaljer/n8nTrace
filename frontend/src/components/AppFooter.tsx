@@ -6,7 +6,7 @@ export function AppFooter() {
       <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
         <p>© {year} n8n Pulse. All rights reserved.</p>
         <a 
-          href="https://github.com/Mohammedaljer/n8n_dash" 
+          href="https://github.com/Mohammedaljer/n8nPulse" 
           target="_blank" 
           rel="noopener noreferrer"
           className="hover:text-foreground transition-colors"

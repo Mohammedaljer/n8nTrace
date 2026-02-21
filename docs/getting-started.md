@@ -25,7 +25,7 @@ Get n8n Pulse running locally in minutes.
 
 ```bash
 # Clone the repository
-git clone https://github.com/Mohammedaljer/n8n_dash.git
+git clone https://github.com/Mohammedaljer/n8nPulse.git
 cd n8n_dash
 
 # Start all services (dev mode)

@@ -226,7 +226,7 @@ export default function SetPasswordPage() {
         <div className="text-center text-xs text-muted-foreground space-x-4">
           <span>&copy; {new Date().getFullYear()} n8n Pulse. All rights reserved.</span>
           <a 
-            href="https://github.com/Mohammedaljer/n8n_dash" 
+            href="https://github.com/Mohammedaljer/n8nPulse" 
             target="_blank" 
             rel="noopener noreferrer"
             className="hover:text-foreground transition-colors"
