@@ -1,12 +1,12 @@
 /**
  * Metrics Section - Complete metrics dashboard section
  * Only rendered when METRICS_ENABLED=true and user has permission
+ * Uses global instance filter from FiltersContext
  */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Activity, Lock, Server } from "lucide-react";
+import { AlertCircle, Activity, Lock, Server, Info } from "lucide-react";
 import { MetricsProvider, useMetrics } from "@/data/MetricsContext";
-import { MetricsInstanceSelect } from "./MetricsInstanceSelect";
 import { MetricsKpiCards } from "./MetricsKpiCards";
 import { MetricsChartsGrid } from "./MetricsCharts";
 
@@ -16,8 +16,6 @@ function MetricsSectionContent() {
     configLoading,
     configError,
     selectedInstanceId,
-    availableInstances,
-    instancesLoading,
     latestError,
   } = useMetrics();
 
@@ -79,28 +77,33 @@ function MetricsSectionContent() {
     );
   }
 
-  // Loading instances
-  if (instancesLoading) {
+  // "All instances" selected - show info state
+  if (selectedInstanceId === 'all') {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
             <Activity className="h-5 w-5" />
             Instance Metrics
-          </h2>
-          <Skeleton className="h-10 w-[180px]" />
-        </div>
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-      </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+            <Info className="h-10 w-10 text-muted-foreground/30" />
+            <div>
+              <p className="text-sm font-medium">Select an instance to view metrics</p>
+              <p className="text-sm text-muted-foreground">
+                Use the Instance dropdown above to select a specific instance
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
-  // No instances available
-  if (availableInstances.length === 0) {
+  // No instance selected
+  if (!selectedInstanceId) {
     return (
       <Card>
         <CardHeader>
@@ -113,9 +116,9 @@ function MetricsSectionContent() {
           <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
             <Server className="h-10 w-10 text-muted-foreground/30" />
             <div>
-              <p className="text-sm font-medium">No instances available</p>
+              <p className="text-sm font-medium">Select an instance</p>
               <p className="text-sm text-muted-foreground">
-                No n8n instances have metrics data yet, or you don&apos;t have access to any instances
+                Use the Instance dropdown above to select an instance
               </p>
             </div>
           </div>
@@ -124,68 +127,29 @@ function MetricsSectionContent() {
     );
   }
 
-  // No instance selected
-  if (!selectedInstanceId) {
-    return (
-      <div className="space-y-6" data-testid="metrics-section">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Instance Metrics
-          </h2>
-          <MetricsInstanceSelect />
-        </div>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-              <Server className="h-10 w-10 text-muted-foreground/30" />
-              <div>
-                <p className="text-sm font-medium">Select an instance</p>
-                <p className="text-sm text-muted-foreground">
-                  Choose an n8n instance to view its metrics
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // Error loading metrics
   if (latestError) {
     return (
-      <div className="space-y-6" data-testid="metrics-section">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
             <Activity className="h-5 w-5" />
             Instance Metrics
-          </h2>
-          <MetricsInstanceSelect />
-        </div>
-        <Card className="border-destructive/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              <p>{latestError}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <p>{latestError}</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   // Full metrics view
   return (
     <div className="space-y-6" data-testid="metrics-section">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          <Activity className="h-5 w-5" />
-          Instance Metrics
-        </h2>
-        <MetricsInstanceSelect />
-      </div>
-
       {/* KPI Cards */}
       <MetricsKpiCards />
 

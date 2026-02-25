@@ -4,21 +4,16 @@ All configuration is via environment variables. Never commit real secrets.
 
 <!-- TOC -->
 
-- [Configuration Reference](#configuration-reference)
-    - [Required Variables](#required-variables)
-    - [Application](#application)
-    - [Security](#security)
-    - [Privacy / GDPR](#privacy--gdpr)
-    - [Authentication](#authentication)
-        - [First Admin Creation](#first-admin-creation)
-    - [n8n Ingestion Optional](#n8n-ingestion-optional)
-    - [Metrics Feature Optional](#metrics-feature-optional)
-    - [Data Retention Optional](#data-retention-optional)
-        - [What Retention Deletes](#what-retention-deletes)
-        - [What Retention Does NOT Touch](#what-retention-does-not-touch)
-        - [Safety Guarantees](#safety-guarantees)
-    - [Database](#database)
-    - [Example .env File](#example-env-file)
+- [Required Variables](#required-variables)
+- [Application](#application)
+- [Security](#security)
+- [Privacy / GDPR](#privacy--gdpr)
+- [Authentication](#authentication)
+- [n8n Ingestion](#n8n-ingestion-optional)
+- [Metrics Feature](#metrics-feature-optional)
+- [Data Retention](#data-retention-optional)
+- [Database](#database)
+- [Example .env File](#example-env-file)
 
 <!-- /TOC -->
 
@@ -30,26 +25,30 @@ All configuration is via environment variables. Never commit real secrets.
 | `JWT_SECRET` | Session signing key (**min 32 characters**) |
 | `DATABASE_URL` | PostgreSQL connection string |
 
-> Generate a secure JWT_SECRET: `openssl rand -base64 32`
+> Generate secrets: `openssl rand -base64 32`
 
 ## Application
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `APP_ENV` | `development` | `production` or `development` |
-| `APP_URL` | `http://localhost:8899` | Public URL (used for links, CORS) |
+| `APP_ENV` | `production` | `production` enables fail-fast security checks |
+| `APP_URL` | `http://localhost:3000` (dev) | Public URL for links |
 | `PORT` | `8001` | Backend HTTP port (internal) |
 | `HTTP_PORT` | `8899` | Frontend exposed port |
+
+> **Important**: In production, `APP_ENV=production` enforces security requirements.
 
 ## Security
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `COOKIE_SECURE` | `true` (prod) | Must be `true` for HTTPS |
+| `COOKIE_SECURE` | `true` (prod) / `false` (dev) | **Must be `true` with HTTPS** |
 | `COOKIE_SAMESITE` | `lax` | Cookie SameSite policy |
-| `COOKIE_DOMAIN` | (empty) | Cookie domain (usually not needed) |
-| `CORS_ORIGIN` | (required) | Frontend origin URL |
-| `TRUST_PROXY` | `1` | Proxy hops to trust for client IP |
+| `COOKIE_DOMAIN` | (empty) | Cookie domain |
+| `CORS_ORIGIN` | (required in prod) | Frontend origin URL |
+| `TRUST_PROXY` | `1` | Proxy hops to trust |
+
+> **Warning**: In production, backend refuses to start if `COOKIE_SECURE=false`.
 
 ## Privacy / GDPR
 
@@ -57,8 +56,6 @@ All configuration is via environment variables. Never commit real secrets.
 |----------|---------|-------------|
 | `AUDIT_LOG_IP_MODE` | `raw` | `raw`, `hashed`, or `none` |
 | `AUDIT_LOG_IP_SALT` | — | Required if mode is `hashed` (min 32 chars) |
-
-> **GDPR Compliance**: Use `AUDIT_LOG_IP_MODE=hashed` or `none` to avoid storing raw IP addresses.
 
 ## Authentication
 
@@ -68,36 +65,30 @@ All configuration is via environment variables. Never commit real secrets.
 
 ### First Admin Creation
 
-Two options for creating the first admin:
+Two options:
 
 1. **Interactive (Recommended)**: Navigate to `/setup` on first run
-2. **Environment**: Set **both** variables below:
-
-| Variable | Description |
-|----------|-------------|
-| `ADMIN_EMAIL` | Initial admin email |
-| `ADMIN_PASSWORD` | Initial admin password |
-
-> **Warning**: Do not hardcode admin credentials in compose files.
+2. **Environment**: Set **both** `ADMIN_EMAIL` and `ADMIN_PASSWORD`
 
 ## n8n Ingestion (Optional)
-
-Restricted database user for n8n to write execution data:
 
 | Variable | Description |
 |----------|-------------|
 | `PULSE_INGEST_USER` | Ingest DB username |
 | `PULSE_INGEST_PASSWORD` | Ingest DB password |
 
-The ingest user can only SELECT/INSERT/UPDATE on execution tables. No access to auth, audit, or RBAC tables.
+The ingest user has least-privilege access to execution tables only.
 
 ## Metrics Feature (Optional)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `METRICS_ENABLED` | `false` | Enable instance metrics dashboard |
+| `METRICS_ENABLED` | `false` | Enable metrics dashboard |
 | `METRICS_MAX_TIME_RANGE_DAYS` | `30` | Max queryable range |
 | `METRICS_MAX_DATAPOINTS` | `1000` | Max points per query |
+| `METRICS_MAX_BREAKDOWN_ROWS` | `50` | Max breakdown rows |
+| `METRICS_MAX_CATALOG_SIZE` | `200` | Max catalog entries |
+| `METRICS_MAX_LABEL_VALUES` | `100` | Max label values |
 
 ## Data Retention (Optional)
 
@@ -105,44 +96,35 @@ The ingest user can only SELECT/INSERT/UPDATE on execution tables. No access to 
 |----------|---------|-------------|
 | `RETENTION_ENABLED` | `false` | Enable automatic cleanup |
 | `RETENTION_DAYS` | `90` | Days to keep data |
-| `RETENTION_RUN_AT` | `03:30` | Daily cleanup time (HH:MM, server time) |
+| `RETENTION_RUN_AT` | `03:30` | Daily cleanup time (HH:MM) |
+| `RETENTION_TZ` | `UTC` | Timezone for schedule |
 
 ### What Retention Deletes
 
-When enabled, the retention job removes records older than `RETENTION_DAYS` from:
+| Table | Rule |
+|-------|---------|
+| `executions` | Finished executions older than cutoff |
+| `execution_nodes` | Orphaned nodes |
+| `workflows_index` | Orphaned workflows |
+| `n8n_metrics_snapshot` | Snapshots older than cutoff |
+| `metrics_samples` | Samples older than cutoff |
+| `metrics_series` | Orphan series (no samples) |
+| `audit_log` | Entries older than cutoff |
 
-| Table | Primary Key | Deletion Rule |
-|-------|-------------|---------------|
-| `executions` | `(instance_id, execution_id)` | Finished executions only (running executions are never deleted) |
-| `execution_nodes` | `(instance_id, execution_id, node_name, run_index)` | Orphaned nodes (parent execution deleted) |
-| `workflows_index` | `workflow_id` | Orphaned workflows only (not referenced by any execution) |
-| `n8n_metrics_snapshot` | `id` | Snapshots older than cutoff |
-| `audit_log` | `id` | Log entries older than cutoff |
+### Never Touched
 
-### What Retention Does NOT Touch
-
-These tables are **never** affected by retention:
-
-- `app_users` - User accounts
-- `groups`, `roles`, `permissions` - RBAC configuration
-- `user_groups`, `group_roles`, `role_permissions` - RBAC assignments
-- `user_password_tokens` - Password reset tokens
-- `pgmigrations` - Migration tracking
-
-### Safety Guarantees
-
-1. **Running executions preserved**: Only `finished = true` executions are deleted
-2. **Batched deletions**: 10,000 records per batch with 50ms pauses (prevents table locks)
-3. **Advisory lock**: Only one retention job runs at a time across all instances
-4. **FK safety**: `execution_nodes` cleaned via orphan detection after parent deletion
+- `app_users`
+- `groups`, `roles`, `permissions`
+- `user_groups`, `group_roles`, `role_permissions`
+- `user_password_tokens`
 
 ## Database
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | (required) | `postgres://user:pass@host:5432/db` |
-| `POSTGRES_USER` | `n8n_pulse` | Database user (compose) |
-| `POSTGRES_DB` | `n8n_pulse` | Database name (compose) |
+| `POSTGRES_USER` | `n8n_pulse` | Database user |
+| `POSTGRES_DB` | `n8n_pulse` | Database name |
 | `DB_POOL_MAX` | `20` | Connection pool max |
 | `DB_IDLE_TIMEOUT` | `30000` | Idle timeout (ms) |
 | `DB_CONNECT_TIMEOUT` | `10000` | Connect timeout (ms) |
@@ -159,6 +141,10 @@ APP_ENV=production
 APP_URL=https://pulse.example.com
 CORS_ORIGIN=https://pulse.example.com
 COOKIE_SECURE=true
+
+# Privacy
+AUDIT_LOG_IP_MODE=hashed
+AUDIT_LOG_IP_SALT=<32-char-salt>
 
 # Optional features
 METRICS_ENABLED=true

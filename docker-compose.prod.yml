@@ -1,25 +1,6 @@
-# n8n Pulse Production Docker Compose
-# 
-# Usage: 
-#   cp .env.example .env
-#   # Edit .env with your secure values
-#   docker compose -f docker-compose.prod.yml up -d --build
-#
-# Required environment variables:
-#   - JWT_SECRET: Minimum 32 character secret (generate: openssl rand -base64 32)
-#   - POSTGRES_PASSWORD: Strong database password
-#
-# Optional:
-#   - APP_URL / CORS_ORIGIN: Your public URL
-#   - HTTP_PORT: Host port (default 8899)
-#
-# Verification:
-#   docker exec n8n_pulse_frontend curl -s http://backend:8001/health
-#   curl -i http://localhost:8899/api/metrics/config
-
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17.2-alpine
     container_name: n8n_pulse_postgres
     restart: unless-stopped
     environment:
@@ -34,17 +15,14 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    security_opt:
+      - no-new-privileges:true
     networks:
       internal:
-        aliases:
-          - postgres
-          - n8n_pulse_postgres
+        aliases: [postgres, n8n_pulse_postgres]
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: mohammedaljer/n8n_pulse_backend:v1.3.2
+    image: mohammedaljer/n8n_pulse_backend:v1.4.1
     container_name: n8n_pulse_backend
     restart: unless-stopped
     environment:
@@ -54,10 +32,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required - minimum 32 characters}
       APP_URL: ${APP_URL:-http://localhost:8899}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8899}
-      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
-      TRUST_PROXY: "1"
+      TRUST_PROXY: ${TRUST_PROXY:-1}
       LOG_FORMAT: json
       RETENTION_ENABLED: ${RETENTION_ENABLED:-true}
       RETENTION_DAYS: ${RETENTION_DAYS:-90}
@@ -72,22 +50,19 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f -m 5 http://localhost:8001/health || exit 1"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 10s
       retries: 5
       start_period: 30s
+    security_opt:
+      - no-new-privileges:true
     networks:
       internal:
-        aliases:
-          - backend
-          - n8n_pulse_backend
+        aliases: [backend, n8n_pulse_backend]
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: mohammedaljer/n8n_pulse_frontend:v1.3.2
+    image: mohammedaljer/n8n_pulse_frontend:v1.4.1
     container_name: n8n_pulse_frontend
     restart: unless-stopped
     ports:
@@ -96,13 +71,15 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
+      test: ["CMD-SHELL", "nginx -t >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 3
       start_period: 10s
+    security_opt:
+      - no-new-privileges:true
     networks:
-      internal:
+      internal: {}
 
 networks:
   internal:

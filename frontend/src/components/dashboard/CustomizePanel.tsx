@@ -15,7 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { GripVertical, RotateCcw, Check, Lock, Activity, BarChart3 } from "lucide-react";
+import { GripVertical, RotateCcw, Check, Lock, Activity, BarChart3, Sparkles } from "lucide-react";
 import type { WidgetDefinition, WidgetLayoutItem, WidgetSize, DashboardLayout } from "./widgetRegistry";
 import { SIZE_LABELS } from "./widgetRegistry";
 import type { MetricsConfig } from "@/data/metricsApi";
@@ -26,6 +26,7 @@ interface CustomizePanelProps {
   onToggleVisibility: (widgetId: string) => void;
   onSetSize: (widgetId: string, size: WidgetSize) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  onAutoArrange: () => void;
   onReset: () => void;
   onClose: () => void;
   metricsConfig?: MetricsConfig | null;
@@ -151,6 +152,7 @@ export function CustomizePanel({
   onToggleVisibility,
   onSetSize,
   onReorder,
+  onAutoArrange,
   onReset,
   onClose,
   metricsConfig,
@@ -224,6 +226,17 @@ export function CustomizePanel({
             </Badge>
           </div>
           <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={onAutoArrange}>
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Auto arrange
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">Compact layout to remove gaps</p>
+              </TooltipContent>
+            </Tooltip>
             <Button variant="ghost" size="sm" onClick={onReset}>
               <RotateCcw className="h-4 w-4 mr-1" />
               Reset

@@ -44,7 +44,6 @@ coverage
 # Documentation (not needed in image)
 docs
 *.md
-!README.md
 
 # Docker files (avoid recursive inclusion)
 Dockerfile*
@@ -53,3 +52,11 @@ docker-compose*.yml
 # Build artifacts
 dist
 build
+.gitleaks.toml
+jest.config.js
+start.sh
+audit-ci.json
+docker-entrypoint.sh
+/cosign
+*.env.local
+*.env.production

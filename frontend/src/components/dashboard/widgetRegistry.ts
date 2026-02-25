@@ -33,11 +33,18 @@ export interface DashboardLayout {
   version: number;
 }
 
-// Grid column spans for each size
+// Grid column spans for each size (CSS class)
 export const SIZE_COLS: Record<WidgetSize, string> = {
   small: "lg:col-span-1",
   medium: "lg:col-span-2",
   large: "lg:col-span-3",
+};
+
+// Grid column count for each size (numeric, for layout calculations)
+export const SIZE_GRID_COLS: Record<WidgetSize, number> = {
+  small: 1,
+  medium: 2,
+  large: 3,
 };
 
 export const SIZE_LABELS: Record<WidgetSize, string> = {
@@ -47,7 +54,7 @@ export const SIZE_LABELS: Record<WidgetSize, string> = {
 };
 
 // Bump version when adding new widgets to force layout refresh
-const LAYOUT_VERSION = 2;
+const LAYOUT_VERSION = 3;
 const STORAGE_KEY = "n8n-dashboard-layout";
 
 export function getDefaultLayout(registry: readonly WidgetDefinition[]): DashboardLayout {

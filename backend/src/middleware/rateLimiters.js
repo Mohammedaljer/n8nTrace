@@ -25,8 +25,10 @@ const adminCreateLimiter = createRateLimiter(60 * 1000, 10);
 const setupLimiter = createRateLimiter(15 * 60 * 1000, 5); // same as sensitive auth
 const metricsLimiter = createRateLimiter(60 * 1000, 60);
 
-// Strict login limiter: 5 attempts per 15 minutes per IP (brute-force protection)
-const loginLimiter = createRateLimiter(15 * 60 * 1000, 5);
+// Login limiter: configurable via env, defaults to 20/15min for production safety
+// Set LOGIN_RATE_LIMIT_MAX to adjust (e.g., 100 for dev/testing)
+const loginLimitMax = parseInt(process.env.LOGIN_RATE_LIMIT_MAX, 10) || 20;
+const loginLimiter = createRateLimiter(15 * 60 * 1000, loginLimitMax);
 
 // Admin API rate limiter: 100 requests per minute per IP
 const adminApiLimiter = createRateLimiter(60 * 1000, 100);

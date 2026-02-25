@@ -12,7 +12,9 @@ let lastRetentionResult = null;
  * 2. execution_nodes (cascaded or by FK)
  * 3. workflows_index (orphans only - not referenced by any execution)
  * 4. n8n_metrics_snapshot (older than cutoff)
- * 5. audit_log (older than cutoff)
+ * 5. metrics_samples (generic metrics, older than cutoff by ts)
+ * 6. metrics_series (orphans with no samples)
+ * 7. audit_log (older than cutoff)
  * 
  * NEVER deletes from: app_users, groups, roles, permissions, or any RBAC tables
  */
@@ -31,6 +33,8 @@ async function runRetentionCleanup() {
     execution_nodes: 0,
     workflows_index: 0,
     n8n_metrics_snapshot: 0,
+    metrics_samples: 0,
+    metrics_series: 0,
     audit_log: 0
   };
 
@@ -149,7 +153,54 @@ async function runRetentionCleanup() {
     console.log(`Retention: Deleted ${deleted.n8n_metrics_snapshot} metrics snapshots`);
 
     // -------------------------------------------------------------------------
-    // 5. DELETE AUDIT_LOG (older than cutoff by created_at)
+    // 5. DELETE METRICS_SAMPLES (generic metrics, older than cutoff by ts)
+    // Delete samples first before cleaning up orphan series
+    // -------------------------------------------------------------------------
+    do {
+      const result = await client.query(
+        `DELETE FROM metrics_samples
+         WHERE ts < $1
+         AND (series_id, ts) IN (
+           SELECT series_id, ts
+           FROM metrics_samples
+           WHERE ts < $1
+           LIMIT $2
+         )
+         RETURNING 1`,
+        [cutoffDate, RETENTION_BATCH_SIZE]
+      );
+      batchDeleted = result.rowCount;
+      deleted.metrics_samples += batchDeleted;
+      if (batchDeleted > 0) await new Promise(r => setTimeout(r, 50));
+    } while (batchDeleted === RETENTION_BATCH_SIZE);
+    console.log(`Retention: Deleted ${deleted.metrics_samples} metrics samples`);
+
+    // -------------------------------------------------------------------------
+    // 6. DELETE ORPHAN METRICS_SERIES (no samples left)
+    // Delete series that have no more samples associated
+    // -------------------------------------------------------------------------
+    do {
+      const result = await client.query(
+        `WITH orphan_series AS (
+           SELECT ms.id
+           FROM metrics_series ms
+           LEFT JOIN metrics_samples msamp ON msamp.series_id = ms.id
+           WHERE msamp.series_id IS NULL
+           LIMIT $1
+         )
+         DELETE FROM metrics_series
+         WHERE id IN (SELECT id FROM orphan_series)
+         RETURNING 1`,
+        [RETENTION_BATCH_SIZE]
+      );
+      batchDeleted = result.rowCount;
+      deleted.metrics_series += batchDeleted;
+      if (batchDeleted > 0) await new Promise(r => setTimeout(r, 50));
+    } while (batchDeleted === RETENTION_BATCH_SIZE);
+    console.log(`Retention: Deleted ${deleted.metrics_series} orphan metrics series`);
+
+    // -------------------------------------------------------------------------
+    // 7. DELETE AUDIT_LOG (older than cutoff by created_at)
     // -------------------------------------------------------------------------
     do {
       const result = await client.query(
@@ -175,7 +226,7 @@ async function runRetentionCleanup() {
     const durationMs = Date.now() - startTime;
     const durationSec = (durationMs / 1000).toFixed(2);
     console.log(`Retention: Completed in ${durationSec}s`);
-    console.log(`Retention: Summary - executions:${deleted.executions}, nodes:${deleted.execution_nodes}, workflows:${deleted.workflows_index}, metrics:${deleted.n8n_metrics_snapshot}, audit:${deleted.audit_log}`);
+    console.log(`Retention: Summary - executions:${deleted.executions}, nodes:${deleted.execution_nodes}, workflows:${deleted.workflows_index}, metrics_snapshot:${deleted.n8n_metrics_snapshot}, metrics_samples:${deleted.metrics_samples}, metrics_series:${deleted.metrics_series}, audit:${deleted.audit_log}`);
 
     // Log audit event (this creates a new audit entry after cleanup)
     await logAudit('retention_cleanup', {

@@ -1,11 +1,20 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const { BCRYPT_ROUNDS: configBcryptRounds } = require('../config');
+
+// Guard: ensure BCRYPT_ROUNDS is always a valid number, fallback to 10
+const BCRYPT_ROUNDS = (typeof configBcryptRounds === 'number' && configBcryptRounds > 0)
+  ? configBcryptRounds
+  : (() => {
+      console.error('[AUTH] WARNING: BCRYPT_ROUNDS is missing or invalid, falling back to 10');
+      return 10;
+    })();
 
 function createAuthRouter(deps) {
   const {
     pool,
     state,
-    loginLimiter, sensitiveAuthLimiter, BCRYPT_ROUNDS, signToken, setAuthCookie, clearAuthCookie, requireAuth, getUserPermissions, createPasswordToken, validateAndConsumeToken, hashToken, logAudit, getAuditContext
+    loginLimiter, sensitiveAuthLimiter, signToken, setAuthCookie, clearAuthCookie, requireAuth, getUserPermissions, createPasswordToken, validateAndConsumeToken, hashToken, logAudit, getAuditContext
   } = deps;
 
   const router = express.Router();

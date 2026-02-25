@@ -66,7 +66,10 @@ postgres_data/
 # IDE & EDITORS
 # =============================================================================
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
 *.swp
 *.swo
 
@@ -101,7 +104,7 @@ venv/
 .cache/
 .vercel
 .ipynb_checkpoints/
--e 
+
 
 # Ignore all docker compose files...
 docker-compose*.yml
@@ -140,3 +143,9 @@ logs/
 /testreports/
 /backend/tests/
 /frontend/src/test/
+
+.gitleaks.toml
+jest.config.js
+start.sh
+audit-ci.json
+/cosign/cosign.key

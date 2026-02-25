@@ -4,13 +4,16 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
+    "audit": "audit-ci",
     "start": "node index.js",
     "migrate": "node-pg-migrate",
     "migrate:create": "npm run migrate create",
     "migrate:up": "npm run migrate up",
     "migrate:up:fake": "npm run migrate up -- --fake",
     "migrate:down": "npm run migrate down",
-    "seed": "node seed/seed.js"
+    "seed": "node seed/seed.js",
+    "test": "jest",
+    "test:rbac": "jest tests/metrics-rbac.test.js --verbose"
   },
   "keywords": [],
   "author": "",
@@ -19,7 +22,7 @@
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
-    "dotenv": "^17.2.4",
+    "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
@@ -34,9 +37,12 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/node": "^25.2.2",
+    "@types/node": "^25.3.0",
     "@types/pg": "^8.16.0",
-    "nodemon": "^3.1.11",
+    "audit-ci": "^7.1.0",
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

@@ -1,5 +1,3 @@
-
-
 <p align="center">
   <img src="../docs/images/n8n-pulse-logo.svg" alt="n8n Pulse" width="100" height="100">
 </p>
@@ -15,18 +13,19 @@
 
 **Workflow file:**
 
-
 [Metrics Workflow JSON](./metrics-snapshot.json)
-
 
 **Screenshot:**
 ![Metrics Workflow](../docs/images/Metrics—Collect_&_Store_Instance_Snapshot.png)
 
 ### Purpose
 
-Collects runtime metrics from an n8n instance via the Prometheus `/metrics` endpoint and stores periodic snapshots in the Pulse database.
+Collects runtime metrics from an n8n instance via the Prometheus `/metrics` endpoint and stores both:
 
-This workflow provides visibility into instance health and performance over time.
+- Periodic snapshot summaries
+- Detailed time-series metrics
+
+This provides full observability into instance health and performance.
 
 ### Flow Summary
 
@@ -34,8 +33,10 @@ This workflow provides visibility into instance health and performance over time
 2. Sets instance context (e.g. `prod`).
 3. Calls the `/metrics` endpoint.
 4. Parses Prometheus metrics.
-5. Extracts key runtime indicators.
-6. Inserts a snapshot into the metrics table.
+5. Extracts runtime indicators.
+6. Inserts snapshot summary.
+7. Upserts metric series definitions.
+8. Inserts metric samples for time-series tracking.
 
 ### Captured Metrics
 
@@ -49,11 +50,28 @@ This workflow provides visibility into instance health and performance over time
 * Leader status
 * Process start time
 
+### Metrics Storage Model
+
+The workflow writes metrics using two layers:
+
+- **Snapshot** → aggregated state for dashboards
+- **Series + Samples** → raw metrics for charts and analysis
+
+The *Upsert Metrics Series + Samples* step:
+
+- Creates or updates metric series metadata
+- Maintains stable series identity using labels hash
+- Inserts timestamped metric values
+- Updates values if the same timestamp already exists
+- Ensures idempotent ingestion
+
 ### Why it matters
 
 Used to power:
 
 * Performance dashboards
+* Metrics Explorer
+* Time-series graphs
 * Capacity monitoring
 * Health checks
 * Historical analysis

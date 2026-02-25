@@ -48,4 +48,4 @@ export function FailedExecutionsTable({ executions, workflows, loading, size }: 
 export { MetricsSection } from "./MetricsSection";
 export { MetricsKpiCards } from "./MetricsKpiCards";
 export { MetricsChartsGrid } from "./MetricsCharts";
-export { MetricsInstanceSelect } from "./MetricsInstanceSelect";
+export { MetricsExplorer } from "./MetricsExplorer";

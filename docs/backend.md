@@ -1,6 +1,6 @@
 # Backend Architecture
 
-n8n Pulse backend is an Express.js REST API providing authentication, authorization, and data access for workflow execution analytics.
+n8n Pulse backend is an Express.js REST API providing authentication, authorization, and data access for workflow execution / metrics analytics.
 
 ## Table of Contents
 
@@ -10,57 +10,45 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
   - [Table of Contents](#table-of-contents)
   - [Technology Stack](#technology-stack)
   - [Project Structure](#project-structure)
-  - [Module Architecture](#module-architecture)
   - [Database Schema](#database-schema)
-    - [Primary Keys Summary](#primary-keys-summary)
+    - [Tables Overview](#tables-overview)
+    - [Primary Keys](#primary-keys)
     - [Core Tables](#core-tables)
-      - [`app_users` - User accounts](#app_users---user-accounts)
-      - [`groups` - RBAC groups](#groups---rbac-groups)
-      - [`roles` - Permission roles (admin, analyst, viewer)](#roles---permission-roles-admin-analyst-viewer)
-      - [`permissions` - Granular permissions](#permissions---granular-permissions)
-    - [n8n Data Tables (populated by PULSE\_INGEST\_USER)](#n8n-data-tables-populated-by-pulse_ingest_user)
-      - [`workflows_index` - Workflow metadata](#workflows_index---workflow-metadata)
-      - [`executions` - Workflow execution records](#executions---workflow-execution-records)
-      - [`execution_nodes` - Node-level execution details](#execution_nodes---node-level-execution-details)
-      - [`n8n_metrics_snapshot` - Instance health metrics](#n8n_metrics_snapshot---instance-health-metrics)
-    - [RBAC Join Tables](#rbac-join-tables)
-    - [Security Tables](#security-tables)
-      - [`audit_log` - Security event log](#audit_log---security-event-log)
-      - [`password_reset_tokens` - Password reset flow](#password_reset_tokens---password-reset-flow)
+      - [`app_users`](#app_users)
+      - [`user_password_tokens`](#user_password_tokens)
+      - [`executions` (multi-tenant)](#executions-multi-tenant)
+      - [Metrics Explorer Tables](#metrics-explorer-tables)
   - [Migrations](#migrations)
-    - [Migration Files](#migration-files)
-    - [Manual Migration Commands](#manual-migration-commands)
-  - [Migrations](#migrations-1)
-    - [Migration Files](#migration-files-1)
-    - [Manual Migration Commands](#manual-migration-commands-1)
   - [API Endpoints](#api-endpoints)
     - [Health](#health)
     - [Setup (First Run)](#setup-first-run)
     - [Authentication](#authentication)
     - [Data (Scope-filtered)](#data-scope-filtered)
     - [Metrics](#metrics)
-    - [Admin (Admin role required)](#admin-admin-role-required)
+      - [Metrics Catalog Behavior](#metrics-catalog-behavior)
+      - [Aggregation Parameter](#aggregation-parameter)
+      - [Metric Type Semantics](#metric-type-semantics)
+    - [Admin (requires `admin:users` permission)](#admin-requires-adminusers-permission)
+    - [Debug (development only)](#debug-development-only)
   - [RBAC (Role-Based Access Control)](#rbac-role-based-access-control)
+    - [Default Roles](#default-roles)
+    - [Default Permissions](#default-permissions)
+    - [Role → Permission Mapping](#role--permission-mapping)
     - [Scope Types](#scope-types)
-    - [Tag Matching](#tag-matching)
-    - [Authorization Flow](#authorization-flow)
-    - [Per-Request Caching](#per-request-caching)
   - [Authentication Flow](#authentication-flow)
     - [Token Invalidation](#token-invalidation)
   - [n8n Data Ingestion](#n8n-data-ingestion)
     - [PULSE\_INGEST\_USER](#pulse_ingest_user)
-    - [How n8n Sends Data](#how-n8n-sends-data)
-    - [Environment Variables for Ingestion](#environment-variables-for-ingestion)
   - [Building \& Running](#building--running)
     - [Local Development](#local-development)
-    - [Docker Build](#docker-build)
-    - [Docker Compose](#docker-compose)
+    - [Docker](#docker)
     - [Health Check](#health-check)
   - [Environment Variables](#environment-variables)
     - [Required](#required)
     - [Optional](#optional)
 
 <!-- /TOC -->
+
 ---
 
 ## Technology Stack
@@ -69,13 +57,14 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
 |-----------|------------|--------|
 | Runtime | Node.js | 20+ |
 | Framework | Express.js | 5.x |
-| Database | PostgreSQL | 16+ |
+| Database | PostgreSQL | 17+ |
 | Auth | JWT + HttpOnly Cookies | - |
 | Migrations | node-pg-migrate | 8.x |
-| Password Hashing | bcryptjs | 3.x |
+| Password Hashing | bcryptjs | 3.x (BCRYPT_ROUNDS=10) |
 | Rate Limiting | express-rate-limit | 8.x |
 | Security | helmet | 8.x |
 | Scheduler | node-cron | 4.x |
+| Database Client | pg | 8.x |
 
 ---
 
@@ -83,314 +72,170 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
 
 ```
 backend/
-├── index.js                    # Entry point (loads src/server.js)
+├── index.js                    # Entry point
 ├── package.json                # Dependencies and scripts
 ├── Dockerfile                  # Production Docker image
-├── .dockerignore               # Docker build exclusions
 │
-├── src/                        # Application source code
+├── src/
 │   ├── app.js                  # Express app factory
-│   ├── server.js               # Server startup & initialization
+│   ├── server.js               # Server startup
 │   │
-│   ├── config/                 # Configuration
-│   │   ├── index.js            # Main config exports
-│   │   └── env.js              # Environment variable parsing
+│   ├── config/
+│   │   ├── index.js            # Config exports (BCRYPT_ROUNDS, etc.)
+│   │   └── env.js              # Environment validation (fail-fast)
 │   │
-│   ├── db/                     # Database
+│   ├── db/
 │   │   ├── pool.js             # PostgreSQL connection pool
 │   │   └── autoInit.js         # Auto-migration & seeding
 │   │
-│   ├── middleware/             # Express middleware
-│   │   ├── auth.js             # JWT auth, permissions, session mgmt
+│   ├── middleware/
+│   │   ├── auth.js             # JWT auth, permissions
 │   │   ├── csrf.js             # CSRF protection
-│   │   └── rateLimiters.js     # Rate limiting configs
+│   │   └── rateLimiters.js     # Rate limiting
 │   │
-│   ├── services/               # Business logic
+│   ├── services/
 │   │   ├── audit.js            # Audit logging
-│   │   ├── authz.js            # RBAC authorization & scopes
+│   │   ├── authz.js            # RBAC authorization
 │   │   ├── retention.js        # Data retention cleanup
 │   │   └── passwordTokens.js   # Password reset tokens
 │   │
-│   ├── routes/                 # API route handlers
-│   │   ├── health.js           # Health check endpoints
-│   │   ├── setup.js            # Initial setup flow
-│   │   ├── auth.js             # Authentication endpoints
-│   │   ├── data.js             # Workflows, executions, nodes
-│   │   ├── admin.js            # Admin user/group management
-│   │   └── metrics.js          # Instance metrics endpoints
+│   ├── routes/
+│   │   ├── health.js           # Health endpoints
+│   │   ├── setup.js            # Initial setup
+│   │   ├── auth.js             # Authentication
+│   │   ├── data.js             # Workflows, executions
+│   │   ├── admin.js            # Admin management
+│   │   └── metrics.js          # Instance metrics
 │   │
-│   └── utils/                  # Utilities
-│       └── sql.js              # SQL query helpers
+│   └── utils/
+│       └── sql.js              # SQL helpers
 │
 ├── migrations/                 # Database migrations
-│   ├── 1770649871121_init-schema.js
-│   ├── 1770660000000_add-password-tokens.js
-│   ├── 1770670000000_add-token-version.js
-│   ├── 1770680000000_retention-and-audit.js
-│   ├── 1770690000000_multi-tenant-executions.js
-│   └── 1770700000000_add-metrics-snapshot.js
-│
-└── tests/                      # Test files
-    └── rbac-regression.test.js # RBAC security tests
+
 ```
-
-
----
-## Module Architecture
-
-The backend uses a **dependency injection** pattern for clean separation and testability.
 
 ---
 
 ## Database Schema
 
-### Primary Keys Summary
+### Tables Overview
+
+| Table | Purpose |
+|-------|--------|
+| `app_users` | User accounts |
+| `groups` | RBAC groups |
+| `roles` | Permission roles (admin, analyst, viewer) |
+| `permissions` | Granular permissions |
+| `user_groups` | User ↔ Group mapping |
+| `group_roles` | Group ↔ Role mapping |
+| `role_permissions` | Role ↔ Permission mapping |
+| `group_scopes` | Group instance/workflow/tag scopes |
+| `user_scopes` | User-level scopes |
+| `user_password_tokens` | Password reset/invite tokens |
+| `audit_log` | Security event log |
+| `workflows_index` | Workflow metadata (from n8n) |
+| `executions` | Execution records (from n8n) |
+| `execution_nodes` | Node execution details (from n8n) |
+| `n8n_metrics_snapshot` | Instance health snapshots (from n8n) |
+| `metrics_series` | Metrics Explorer series definitions |
+| `metrics_samples` | Metrics Explorer time-series data |
+
+### Primary Keys
 
 | Table | Primary Key | Type |
 |-------|-------------|------|
 | `app_users` | `id` (UUID) | Single |
-| `workflows_index` | `workflow_id` | Single (globally unique) |
-| `executions` | `(instance_id, execution_id)` | Composite (multi-tenant) |
+| `workflows_index` | `workflow_id` | Single |
+| `executions` | `(instance_id, execution_id)` | Composite |
 | `execution_nodes` | `(instance_id, execution_id, node_name, run_index)` | Composite |
 | `n8n_metrics_snapshot` | `id` (UUID) | Single |
-| `audit_log` | `id` (UUID) | Single |
-| `groups` | `id` (UUID) | Single |
-| `roles` | `id` (UUID) | Single |
-| `permissions` | `id` (UUID) | Single |
+| `metrics_series` | `id` (BIGSERIAL) | Single |
+| `metrics_samples` | `(series_id, ts)` | Composite |
 
 ### Core Tables
 
-#### `app_users` - User accounts
+#### `app_users`
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 email           TEXT NOT NULL UNIQUE
-password_hash   TEXT NOT NULL
+password_hash   TEXT              -- NULL until password set
 is_active       BOOLEAN DEFAULT true
-token_version   INTEGER DEFAULT 0  -- Incremented to invalidate sessions
+token_version   INTEGER DEFAULT 0 -- Incremented to invalidate sessions
+password_set_at TIMESTAMPTZ
 created_at      TIMESTAMPTZ DEFAULT now()
 updated_at      TIMESTAMPTZ DEFAULT now()
 ```
 
-#### `groups` - RBAC groups
+#### `user_password_tokens`
 ```sql
 id              UUID PRIMARY KEY
-name            TEXT NOT NULL UNIQUE
-description     TEXT
+user_id         UUID REFERENCES app_users(id) ON DELETE CASCADE
+token_hash      TEXT NOT NULL
+type            TEXT NOT NULL     -- 'reset_password' | 'invite_set_password'
+expires_at      TIMESTAMPTZ NOT NULL
+used_at         TIMESTAMPTZ       -- NULL until used
 created_at      TIMESTAMPTZ DEFAULT now()
 ```
 
-#### `roles` - Permission roles (admin, analyst, viewer)
+#### `executions` (multi-tenant)
 ```sql
-id              UUID PRIMARY KEY
-key             TEXT NOT NULL UNIQUE  -- 'admin', 'analyst', 'viewer'
-name            TEXT NOT NULL
-created_at      TIMESTAMPTZ DEFAULT now()
+PRIMARY KEY (instance_id, execution_id)
+
+instance_id     TEXT NOT NULL
+execution_id    TEXT NOT NULL
+workflow_id     TEXT REFERENCES workflows_index(workflow_id)
+status          TEXT NOT NULL     -- 'success' | 'error' | 'running' | 'waiting'
+finished        BOOLEAN NOT NULL
+mode            TEXT NOT NULL
+started_at      TIMESTAMPTZ NOT NULL
+stopped_at      TIMESTAMPTZ
+duration_ms     BIGINT
+inserted_at     TIMESTAMPTZ DEFAULT now()
 ```
 
-#### `permissions` - Granular permissions
+#### Metrics Explorer Tables
 ```sql
-id              UUID PRIMARY KEY
-key             TEXT NOT NULL UNIQUE  -- e.g., 'metrics.read.full'
-description     TEXT
-created_at      TIMESTAMPTZ DEFAULT now()
-```
+-- metrics_series: unique metric name + label combinations
+metrics_series (
+  id            BIGSERIAL PRIMARY KEY,
+  instance_id   TEXT NOT NULL,
+  metric_name   TEXT NOT NULL,
+  labels        JSONB DEFAULT '{}',
+  first_seen    TIMESTAMPTZ DEFAULT now(),
+  last_seen     TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(instance_id, metric_name, labels)
+)
 
-### n8n Data Tables (populated by PULSE_INGEST_USER)
-
-#### `workflows_index` - Workflow metadata
-```sql
-workflow_id           TEXT PRIMARY KEY        -- Globally unique
-instance_id           TEXT NOT NULL
-name                  TEXT NOT NULL
-active                BOOLEAN DEFAULT false
-is_archived           BOOLEAN DEFAULT false
-tags                  TEXT          -- JSON array as text: '[\"backup\",\"prod\"]'
-nodes_count           INT4
-node_types            TEXT          -- JSON array of node types
-distinct_node_names   TEXT
-created_at            TIMESTAMPTZ
-updated_at            TIMESTAMPTZ
-distinct_inserted_at  TIMESTAMPTZ
-
-INDEX idx_workflows_instance_id ON (instance_id)
-```
-
-#### `executions` - Workflow execution records
-```sql
-PRIMARY KEY (instance_id, execution_id)       -- Composite key (multi-tenant)
-
-instance_id           TEXT NOT NULL
-execution_id          TEXT NOT NULL
-workflow_id           TEXT REFERENCES workflows_index(workflow_id)
-status                TEXT NOT NULL  -- 'success', 'error', 'running', 'waiting'
-finished              BOOLEAN NOT NULL
-mode                  TEXT NOT NULL  -- 'manual', 'trigger', 'webhook', etc.
-started_at            TIMESTAMPTZ NOT NULL
-stopped_at            TIMESTAMPTZ NOT NULL
-duration_ms           BIGINT NOT NULL
-wait_till             TIMESTAMPTZ
-retry_of              TEXT
-retry_success_id      TEXT
-last_node_executed    TEXT
-node_names_executed   TEXT
-nodes_count           INT4
-inserted_at           TIMESTAMPTZ DEFAULT now()
-
-INDEX idx_executions_instance_id ON (instance_id)
-INDEX idx_executions_status_started ON (status, started_at)
-INDEX idx_executions_workflow_id ON (workflow_id)
-```
-
-#### `execution_nodes` - Node-level execution details
-```sql
-PRIMARY KEY (instance_id, execution_id, node_name, run_index)  -- Composite key
-
-instance_id           TEXT NOT NULL
-execution_id          TEXT NOT NULL
-workflow_id           TEXT REFERENCES workflows_index(workflow_id)
-node_name             TEXT NOT NULL
-node_type             TEXT NOT NULL
-run_index             INT4 DEFAULT 0
-runs_count            INT4 DEFAULT 1
-is_last_run           BOOLEAN DEFAULT false
-execution_status      TEXT NOT NULL  -- 'success', 'error'
-execution_time_ms     BIGINT DEFAULT 0
-start_time_ms         BIGINT
-start_time            TIMESTAMPTZ
-items_out_count       INT4
-items_out_total_all_runs INT4
-inserted_at           TIMESTAMPTZ DEFAULT now()
-
-FOREIGN KEY (instance_id, execution_id) REFERENCES executions(instance_id, execution_id) ON DELETE CASCADE
-```
-
-#### `n8n_metrics_snapshot` - Instance health metrics
-```sql
-id                    UUID PRIMARY KEY
-instance_id           TEXT NOT NULL
-ts                    TIMESTAMPTZ NOT NULL
-n8n_version           TEXT
-node_version          TEXT
-process_start_time_seconds REAL
-is_leader             BOOLEAN
-active_workflows      INT4
-cpu_total_seconds     REAL
-memory_rss_bytes      BIGINT
-heap_used_bytes       BIGINT
-external_memory_bytes BIGINT
-eventloop_lag_p99_s   REAL
-open_fds              INT4
-inserted_at           TIMESTAMPTZ DEFAULT now()
-```
-
-### RBAC Join Tables
-
-```sql
--- User ↔ Group mapping
-user_groups (user_id UUID, group_id UUID) PRIMARY KEY
-
--- Group ↔ Role mapping
-group_roles (group_id UUID, role_id UUID) PRIMARY KEY
-
--- Role ↔ Permission mapping
-role_permissions (role_id UUID, permission_id UUID) PRIMARY KEY
-
--- Group scopes (instance/workflow/tag filtering)
-group_scopes (
-  id UUID PRIMARY KEY,
-  group_id UUID REFERENCES groups(id),
-  instance_id TEXT,    -- NULL = all instances (if no tag/workflow)
-  workflow_id TEXT,    -- Specific workflow access
-  tag TEXT             -- Tag-based workflow filtering
+-- metrics_samples: time-series data points
+metrics_samples (
+  series_id     BIGINT REFERENCES metrics_series(id) ON DELETE CASCADE,
+  ts            TIMESTAMPTZ NOT NULL,
+  value         DOUBLE PRECISION NOT NULL,
+  PRIMARY KEY (series_id, ts)
 )
 ```
 
-### Security Tables
-
-#### `audit_log` - Security event log
-```sql
-id                    UUID PRIMARY KEY
-event_type            TEXT NOT NULL  -- 'login', 'logout', 'password_change', etc.
-actor_id              UUID           -- User who performed action
-target_id             UUID           -- User/resource affected
-details               JSONB          -- Additional context
-ip_address            TEXT           -- Client IP (hashed if AUDIT_LOG_IP_MODE=hashed)
-created_at            TIMESTAMPTZ DEFAULT now()
-```
-
-#### `password_reset_tokens` - Password reset flow
-```sql
-id                    UUID PRIMARY KEY
-user_id               UUID REFERENCES app_users(id)
-token_hash            TEXT NOT NULL
-token_type            TEXT NOT NULL  -- 'reset_password', 'invite_set_password'
-expires_at            TIMESTAMPTZ NOT NULL
-used                  BOOLEAN DEFAULT false
-created_at            TIMESTAMPTZ DEFAULT now()
-```
-
 ---
 
 ## Migrations
 
-Migrations run automatically on backend startup via `src/db/autoInit.js`.
-
-### Migration Files
+Migrations run automatically on startup via `src/db/autoInit.js`.
 
 | Migration | Purpose |
 |-----------|--------|
-| `init-schema` | Core tables: users, RBAC, executions, workflows, nodes |
-| `add-password-tokens` | Password reset token table |
-| `add-token-version` | Session invalidation support |
-| `retention-and-audit` | Audit log + retention tracking tables |
-| `multi-tenant-executions` | Composite PK `(instance_id, execution_id)` for multi-tenant support |
-| `add-metrics-snapshot` | n8n instance metrics table |
-
-### Manual Migration Commands
-
-```bash
-# Run pending migrations
-npm run migrate up
-
-# Rollback last migration
-npm run migrate down
-
-# Create new migration
-npm run migrate:create -- my-migration-name
-```
-
----
-
-## Migrations
-
-Migrations run automatically on backend startup.
-
-### Migration Files
-
-| Migration | Purpose |
-|-----------|--------|
-| `init-schema` | Core tables: users, RBAC, executions, workflows, nodes |
-| `add-password-tokens` | Password reset token table |
-| `add-token-version` | Session invalidation support |
-| `retention-and-audit` | Audit log + retention tracking tables |
-| `multi-tenant-executions` | Composite PK `(instance_id, execution_id)` for multi-tenant support |
-| `add-metrics-snapshot` | n8n instance metrics table |
-| `retention-indexes` | Indexes for retention job performance |
-
-### Manual Migration Commands
+| `init-schema` | Core tables |
+| `add-password-tokens` | `user_password_tokens` table |
+| `add-token-version` | Session invalidation |
+| `retention-and-audit` | Audit log, retention tracking |
+| `multi-tenant-executions` | Composite PK for multi-tenant |
+| `add-metrics-snapshot` | n8n metrics table |
+| `add-metrics-explorer` | Metrics Explorer tables |
 
 ```bash
-# Run pending migrations
+# Manual commands
 npm run migrate up
-
-# Rollback last migration
 npm run migrate down
-
-# Create new migration
-npm run migrate:create -- my-migration-name
-
-# Mark migrations as run (without executing)
-npm run migrate:up:fake
+npm run migrate:create -- my-migration
 ```
 
 ---
@@ -401,130 +246,175 @@ npm run migrate:up:fake
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/health` | Database connectivity check | No |
+| GET | `/health` | Database connectivity | No |
+| GET | `/ready` | Application readiness | No |
 
 ### Setup (First Run)
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/api/setup/status` | Check if setup is required | No |
-| POST | `/api/setup` | Create first admin user | No |
+| GET | `/api/setup/status` | Check if setup required | No |
+| POST | `/api/setup/initial-admin` | Create first admin | No |
 
 ### Authentication
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| POST | `/api/auth/login` | Login with email/password | No |
-| POST | `/api/auth/logout` | Logout (clears cookie) | Yes |
-| GET | `/api/auth/me` | Get current user info | Yes |
-| POST | `/api/auth/change-password` | Change own password | Yes |
-| POST | `/api/auth/forgot-password` | Request password reset | No |
-| POST | `/api/auth/reset-password` | Reset password with token | No |
-| POST | `/api/auth/set-password` | Set password (invite flow) | No |
+| POST | `/api/auth/login` | Login | No |
+| POST | `/api/auth/logout` | Logout | Yes |
+| GET | `/api/auth/me` | Current user info | Yes |
+| POST | `/api/auth/forgot-password` | Request reset | No |
+| POST | `/api/auth/reset-password` | Reset with token | No |
+| POST | `/api/auth/set-password` | Set password (invite) | No |
+| POST | `/api/auth/validate-token` | Validate reset/invite token | No |
 
 ### Data (Scope-filtered)
 
 | Method | Endpoint | Description | Auth | Permission |
 |--------|----------|-------------|------|------------|
 | GET | `/api/workflows` | List workflows | Yes | `read:workflows` |
-| GET | `/api/workflows/status` | Workflow active/inactive counts | Yes | `read:workflows` |
+| GET | `/api/workflows/status` | Active/inactive counts | Yes | `read:workflows` |
 | GET | `/api/executions` | List executions | Yes | `read:executions` |
-| GET | `/api/execution-nodes` | Node execution details | Yes | `read:nodes` |
+| GET | `/api/execution-nodes` | Node details | Yes | `read:nodes` |
 
 ### Metrics
 
 | Method | Endpoint | Description | Auth | Permission |
 |--------|----------|-------------|------|------------|
-| GET | `/api/metrics/config` | Metrics feature config | Yes | - |
-| GET | `/api/metrics/instances` | List accessible instances | Yes | `metrics.read.*` |
-| GET | `/api/metrics/latest` | Latest metrics snapshot | Yes | `metrics.read.*` + instance scope |
-| GET | `/api/metrics/timeseries` | Time series for charts | Yes | `metrics.read.full` + instance scope |
+| GET | `/api/metrics/config` | Feature config | Yes | - |
+| GET | `/api/metrics/instances` | Accessible instances | Yes | `metrics.read.*` |
+| GET | `/api/metrics/latest` | Latest snapshot | Yes | `metrics.read.full` |
+| GET | `/api/metrics/timeseries` | Time series | Yes | `metrics.read.full` |
+| GET | `/api/metrics/catalog` | Available metrics | Yes | `metrics.read.full` |
+| POST | `/api/metrics/query` | Query metrics | Yes | `metrics.read.full` |
+| GET | `/api/metrics/explorer/catalog` | Explorer catalog | Yes | `metrics.read.full` |
+| GET | `/api/metrics/explorer/labels` | Label values | Yes | `metrics.read.full` |
+| POST | `/api/metrics/explorer/query` | Explorer query | Yes | `metrics.read.full` |
 
-### Admin (Admin role required)
+#### Metrics Catalog Behavior
+
+The catalog endpoint returns one entry per `metric_name`, aggregating metadata across all series:
+- Includes metrics with empty labels (`labels = '{}'`)
+- `labelKeys`: Array of all distinct label keys across series
+- `metricType` and `help`: Deterministically selected non-null value (or `null` if all are null)
+
+#### Aggregation Parameter
+
+The `/api/metrics/explorer/query` endpoint accepts an `aggregation` parameter:
+
+| Value | Behavior |
+|-------|----------|
+| `avg` | Average of samples in each time bucket (default) |
+| `sum` | Sum of samples in each time bucket |
+| `max` | Maximum sample in each time bucket |
+| `none` | Treated as `avg` to maintain datapoint limits |
+
+Aggregation applies **within each time bucket per series** (downsampling), not across series.
+
+#### Metric Type Semantics
+
+**Gauges:**
+- Card view: Returns `last` value
+- Line view: Returns downsampled values using selected aggregation
+- Response includes `meta.computedAs: 'last'` or `meta.computedAs: 'avg'`
+
+**Counters:**
+- Card view: Returns `rate` (increase per second over time range)
+- Line view: Returns `delta` per bucket (handles counter resets)
+- Response includes `meta.computedAs: 'rate'` or `meta.computedAs: 'delta'`
+- Aggregation parameter is ignored for counters (always delta/rate)
+
+**Histogram Suffix Metrics** (`_sum`, `_count`, `_bucket`):
+- Treated as counters with delta/rate semantics (Recommendation C)
+- `avg_latency` derivation not implemented in this release
+- Response includes `meta.computedAs: 'delta'` or `meta.computedAs: 'rate'`
+
+### Admin (requires `admin:users` permission)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/users` | List users |
+| POST | `/api/admin/users` | Create/invite user |
+| PATCH | `/api/admin/users/:userId` | Update user |
+| DELETE | `/api/admin/users/:userId` | Delete user |
+| PUT | `/api/admin/users/:userId/groups` | Update user groups |
+| POST | `/api/admin/users/:userId/regenerate-invite` | Regenerate invite |
+| POST | `/api/admin/users/:userId/reset-password-link` | Generate reset link |
+| GET | `/api/admin/groups` | List groups |
+| POST | `/api/admin/groups` | Create group |
+| PUT | `/api/admin/groups/:groupId` | Update group |
+| DELETE | `/api/admin/groups/:groupId` | Delete group |
+| GET | `/api/admin/roles` | List roles |
+| GET | `/api/admin/roles-with-permissions` | Roles with permissions |
+| GET | `/api/admin/audit-logs` | View audit logs |
+| GET | `/api/admin/audit-log-actions` | Available audit actions |
+| GET | `/api/admin/retention/status` | Retention status |
+| POST | `/api/admin/retention/run` | Trigger retention |
+
+### Debug (development only)
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/api/admin/users` | List users | Yes |
-| POST | `/api/admin/users` | Create user | Yes |
-| POST | `/api/admin/users/invite` | Invite user via email | Yes |
-| PATCH | `/api/admin/users/:id` | Update user | Yes |
-| DELETE | `/api/admin/users/:id` | Delete user | Yes |
-| GET | `/api/admin/groups` | List groups | Yes |
-| POST | `/api/admin/groups` | Create group | Yes |
-| PATCH | `/api/admin/groups/:id` | Update group | Yes |
-| DELETE | `/api/admin/groups/:id` | Delete group | Yes |
-| GET | `/api/admin/roles` | List roles | Yes |
-| GET | `/api/admin/audit` | View audit logs | Yes |
-| GET | `/api/admin/retention` | Retention status | Yes |
-| POST | `/api/admin/retention/run` | Trigger retention cleanup | Yes |
+| GET | `/api/debug/ip` | Show client IP | Yes |
 
 ---
 
 ## RBAC (Role-Based Access Control)
 
+### Default Roles
+
+| Role | Description |
+|------|-------------|
+| `admin` | Full access |
+| `analyst` | Read + export + full metrics |
+| `viewer` | Read-only, basic metrics |
+
+### Default Permissions
+
+| Permission | Description |
+|------------|-------------|
+| `admin:users` | Manage users |
+| `admin:roles` | Manage roles |
+| `admin:groups` | Manage groups |
+| `read:workflows` | Read workflows |
+| `read:executions` | Read executions |
+| `read:nodes` | Read execution nodes |
+| `export:data` | Export data |
+| `metrics.read.version` | Read n8n version only |
+| `metrics.read.full` | Read all metrics |
+| `metrics.manage` | Manage metrics config |
+
+### Role → Permission Mapping
+
+| Role | Permissions |
+|------|-------------|
+| admin | All permissions |
+| analyst | `read:*`, `export:data`, `metrics.read.version`, `metrics.read.full` |
+| viewer | `read:*`, `metrics.read.version` |
+
 ### Scope Types
 
 | Scope | Effect | Instance Metrics |
 |-------|--------|------------------|
-| **Tag** (`tag = 'backup'`) | See workflows with that tag (all instances) | ❌ No access |
-| **Workflow ID** (`workflow_id = 'wf-123'`) | See specific workflow only | ❌ No access |
-| **Instance** (`instance_id = 'prod'`) | See all workflows in instance | ✅ For that instance |
-| **Global** (`instance_id = NULL, tag = NULL, workflow_id = NULL`) | See all workflows | ✅ All instances |
-| **No scopes** | Default deny - see nothing | ❌ No access |
-
-### Tag Matching
-
-Tags are stored as JSON arrays: `'[\"backup\",\"prod\"]'`
-
-Matching uses PostgreSQL JSONB operator for **exact membership**:
-```sql
-WHERE tags::jsonb ?| ARRAY['backup']::text[]
-```
-
-- `backup` matches `[\"backup\"]` ✅
-- `backup` does NOT match `[\"backup2\"]` ✅ (no substring matching)
-
-### Authorization Flow
-
-```
-Request → requireAuth → attachAuthz → getAuthorizationContext()
-                                            │
-                                            ├── Admin? → Return all data
-                                            │
-                                            ├── No scopes? → Return empty (default deny)
-                                            │
-                                            └── Has scopes? → Resolve allowedWorkflowIds
-                                                              │
-                                                              ├── Tag scopes → JSONB match
-                                                              ├── Workflow ID scopes → Direct
-                                                              └── Instance scopes → All in instance
-```
-
-### Per-Request Caching
-
-Authorization context is cached on `req._authzCache` to avoid repeated DB queries within a single request.
+| Instance | See all data in instance | ✅ Yes |
+| Workflow | See specific workflow | ❌ No |
+| Tag | See workflows with tag | ❌ No |
+| Global (no scope) | Admin: all; Others: nothing | Admin only |
 
 ---
 
 ## Authentication Flow
 
-```
-1. User POST /api/auth/login with {email, password}
-2. Backend verifies credentials against app_users
-3. Backend generates JWT with user ID, token_version
-4. JWT stored in HttpOnly cookie (not accessible to JS)
-5. Subsequent requests include cookie automatically
-6. Backend validates JWT on each request
-7. If token_version changed (password reset), JWT rejected
-```
-
+1. User POSTs `/api/auth/login` with `{email, password}`
+2. Backend verifies against `app_users.password_hash`
+3. JWT generated with `{userId, tokenVersion}`
+4. JWT stored in HttpOnly cookie `n8n_pulse_token`
+5. Subsequent requests validated via cookie
+6. If `token_version` changed, JWT rejected
 
 ### Token Invalidation
 
-When a user changes their password or an admin forces logout:
-1. `token_version` column is incremented
-2. All existing JWTs become invalid
-3. User must re-authenticate
+Password change increments `token_version`, invalidating all sessions.
 
 ---
 
@@ -532,41 +422,20 @@ When a user changes their password or an admin forces logout:
 
 ### PULSE_INGEST_USER
 
-A restricted PostgreSQL user for n8n to write execution data directly.
+Restricted PostgreSQL user for n8n to write data:
 
-**Permissions (least privilege):**
 ```sql
--- Can only modify these tables:
+-- Allowed tables:
 GRANT SELECT, INSERT, UPDATE ON workflows_index TO pulse_ingest;
 GRANT SELECT, INSERT, UPDATE ON executions TO pulse_ingest;
 GRANT SELECT, INSERT, UPDATE ON execution_nodes TO pulse_ingest;
 GRANT SELECT, INSERT, UPDATE ON n8n_metrics_snapshot TO pulse_ingest;
+GRANT SELECT, INSERT, UPDATE ON metrics_series TO pulse_ingest;
+GRANT SELECT, INSERT, UPDATE ON metrics_samples TO pulse_ingest;
 
--- CANNOT access:
--- app_users, audit_log, groups, roles, permissions, etc.
+-- Cannot access: app_users, audit_log, RBAC tables
+-- Cannot DELETE any data
 ```
-
-### How n8n Sends Data
-
-1. Create a workflow in n8n with PostgreSQL node
-2. Connect to Pulse database using `PULSE_INGEST_USER` credentials
-3. Insert execution data after workflow runs
-4. Optionally send metrics via scheduled workflow
-
-**Example n8n workflow:**
-```
-[Trigger] → [Code: Format Data] → [PostgreSQL: INSERT INTO executions]
-```
-
-### Environment Variables for Ingestion
-
-```bash
-# Set in docker-compose or Portainer
-PULSE_INGEST_USER=pulse_ingest
-PULSE_INGEST_PASSWORD=<strong-random-password>
-```
-
-The backend creates this user automatically if credentials are provided.
 
 ---
 
@@ -577,43 +446,16 @@ The backend creates this user automatically if credentials are provided.
 ```bash
 cd backend
 npm install
-
-# Set required environment variables
-export DATABASE_URL="postgres://n8n_pulse:password@localhost:5432/n8n_pulse"
-export JWT_SECRET="your-32-character-minimum-secret-key"
-
-# Run with hot reload
+export DATABASE_URL="postgres://user:pass@localhost:5432/n8n_pulse"
+export JWT_SECRET="your-32-char-secret"
 npm run dev
 ```
 
-### Docker Build
+### Docker
 
 ```bash
-# Build image
 docker build -t n8n_pulse_backend:local ./backend
-
-# Build without cache (clean build)
-docker build --no-cache -t n8n_pulse_backend:local ./backend
-
-# Build with specific tag
-docker build -t mohammedaljer/n8n_pulse_backend:v1.3.1 ./backend
-```
-
-### Docker Compose
-
-```bash
-# Development (with build)
-docker compose up -d --build
-
-# Production (with build)
 docker compose -f docker-compose.prod.yml up -d --build
-
-# Production (pre-built images)
-docker compose -f docker-compose.prod.images.yml up -d
-
-# Rebuild without cache
-docker compose build --no-cache backend
-docker compose up -d
 ```
 
 ### Health Check
@@ -634,13 +476,13 @@ See [Configuration Reference](./configuration.md) for complete list.
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | Min 32 characters for signing |
+| `JWT_SECRET` | Min 32 characters |
 
 ### Optional
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8001` | HTTP port |
-| `APP_ENV` | `development` | `production` enables fail-fast checks |
-| `TRUST_PROXY` | `1` | Proxy hops for client IP |
-| `LOG_FORMAT` | `combined` | Morgan log format |
+| `APP_ENV` | `production` | `production` or `development` |
+| `TRUST_PROXY` | `1` | Proxy hops |
+| `LOG_FORMAT` | `json` (prod) / `dev` | Morgan format |

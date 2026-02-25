@@ -56,6 +56,7 @@ export default function DashboardPage() {
     toggleWidgetVisibility,
     setWidgetSize,
     reorderWidgets,
+    autoArrange,
     resetToDefault,
     getVisibleWidgets,
   } = useDashboardLayout(WIDGET_REGISTRY);
@@ -233,6 +234,7 @@ export default function DashboardPage() {
           onToggleVisibility={toggleWidgetVisibility}
           onSetSize={setWidgetSize}
           onReorder={reorderWidgets}
+          onAutoArrange={autoArrange}
           onReset={resetToDefault}
           onClose={() => setIsCustomizing(false)}
           metricsConfig={metricsConfig}

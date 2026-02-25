@@ -24,12 +24,13 @@ export function formatDateForFilter(date: Date): string {
 
 /**
  * Get the start and end of today in local time
+ * 'from' is start of today (00:00), 'to' is current time (now)
  */
 function getTodayRange(): { from: string; to: string } {
   const now = new Date();
   return {
     from: formatDateTimeForFilter(startOfDay(now)),
-    to: formatDateTimeForFilter(endOfDay(now)),
+    to: formatDateTimeForFilter(now),  // Current time, not end of day
   };
 }
 
@@ -46,13 +47,14 @@ function getYesterdayRange(): { from: string; to: string } {
 
 /**
  * Get range for last N days (including today)
+ * 'from' is start of N days ago, 'to' is current time (now)
  */
 function getLastNDaysRange(n: number): { from: string; to: string } {
   const now = new Date();
   const start = subDays(now, n - 1);
   return {
     from: formatDateTimeForFilter(startOfDay(start)),
-    to: formatDateTimeForFilter(endOfDay(now)),
+    to: formatDateTimeForFilter(now),  // Current time, not end of day
   };
 }
 

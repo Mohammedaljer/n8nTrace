@@ -28,3 +28,11 @@ docs
 *.md
 Dockerfile*
 docker-compose*.yml
+.gitleaks.toml
+jest.config.js
+start.sh
+audit-ci.json
+docker-entrypoint.sh
+/cosign
+*.env.local
+*.env.production

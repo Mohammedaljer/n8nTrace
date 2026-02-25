@@ -1,4 +1,5 @@
 const { pool } = require('../db/pool');
+const { getUserPermissions } = require('../middleware/auth');
 
 /**
  * Centralized authorization helper that resolves "allowed workflow IDs" per request.

@@ -1,5 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const { RETENTION_ENABLED, RETENTION_DAYS, RETENTION_RUN_AT } = require('../config');
+const { runRetentionCleanup, getRetentionStatus } = require('../services/retention');
+const { groupIdsGrantAdmin } = require('../middleware/auth');
 
 function createAdminRouter(deps) {
   const {
@@ -299,12 +302,13 @@ router.post('/api/admin/retention/run', requireAuth, requirePermission('admin:us
 });
 
 router.get('/api/admin/retention/status', requireAuth, requirePermission('admin:users'), async (req, res) => {
+  const status = getRetentionStatus();
   res.json({
-    enabled: RETENTION_ENABLED,
-    retentionDays: RETENTION_DAYS,
-    runAt: RETENTION_RUN_AT,
-    isRunning: retentionJobRunning,
-    lastResult: lastRetentionResult,
+    enabled: status.enabled,
+    retentionDays: status.retentionDays,
+    runAt: status.runAt,
+    isRunning: status.isRunning,
+    lastResult: status.lastResult,
   });
 });
 

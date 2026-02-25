@@ -1,5 +1,6 @@
 const { pool } = require('./pool');
 const { quoteIdent, quoteLiteral } = require('../utils/sql');
+const bcrypt = require('bcryptjs');
 const {
   BCRYPT_ROUNDS,
   IS_DEV,
@@ -164,7 +165,7 @@ async function autoInit() {
 
       const dbOwner = process.env.DATABASE_URL.match(/\/\/([^:]+):/)?.[1] || 'n8n_pulse';
       // Tables the ingest user can access (SELECT, INSERT, UPDATE - no DELETE)
-      const allowedTables = ['executions', 'execution_nodes', 'workflows_index', 'n8n_metrics_snapshot'];
+      const allowedTables = ['executions', 'execution_nodes', 'workflows_index', 'n8n_metrics_snapshot', 'metrics_series', 'metrics_samples'];
       // Protected tables - auth/RBAC/audit (explicit revoke for defense in depth)
       const protectedTables = [
         'app_users', 'user_password_tokens', 'audit_log',

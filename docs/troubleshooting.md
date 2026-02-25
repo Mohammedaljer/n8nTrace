@@ -1,226 +1,245 @@
 # Troubleshooting
 
 Common issues and solutions.
+
 <!-- TOC -->
 
 - [Troubleshooting](#troubleshooting)
+  - [Backend Won't Start (Fail-fast)](#backend-wont-start-fail-fast)
   - [Database Not Ready](#database-not-ready)
   - [Health Check Returns 503](#health-check-returns-503)
-  - [Redirected to /setup When Users Exist](#redirected-to-setup-when-users-exist)
+  - [Cannot Access /setup](#cannot-access-setup)
   - [Login Fails with 401](#login-fails-with-401)
+  - [Set Password Returns 500 (FIXED)](#set-password-returns-500-fixed)
+  - [Rate Limited (429)](#rate-limited-429)
   - [Cookies Not Being Set](#cookies-not-being-set)
   - [CORS Errors](#cors-errors)
   - [Metrics Not Showing](#metrics-not-showing)
-  - [Migrations Failed](#migrations-failed)
-  - [Wrong Client IP in Audit Logs](#wrong-client-ip-in-audit-logs)
-  - [Container Won't Start (Fail-fast)](#container-wont-start-fail-fast)
+  - [Instance Metrics Access Denied](#instance-metrics-access-denied)
+  - [Dashboard Layout Not Saving](#dashboard-layout-not-saving)
   - [Retention Job Not Running](#retention-job-not-running)
+  - [Wrong IP in Audit Logs](#wrong-ip-in-audit-logs)
   - [Verification Commands](#verification-commands)
 
 <!-- /TOC -->
+
+## Backend Won't Start (Fail-fast)
+**
+**Symptom**: Backend exits with `FATAL` error in production.
+
+**Causes** (fail-fast checks):
+- `JWT_SECRET` < 32 characters
+- `JWT_SECRET` contains placeholder values
+- `COOKIE_SECURE=false` in production
+- `CORS_ORIGIN=*` in production
+- `AUDIT_LOG_IP_SALT` missing when mode is `hashed`
+
+**Solution**: Fix environment variables:
+
+```bash
+openssl rand -base64 32  # Generate JWT_SECRET
+```
+
 ## Database Not Ready
 
-**Symptom**: Backend fails to start, logs show database connection errors.
+**Symptom**: Connection errors on startup.
 
 **Solutions**:
-1. Wait for PostgreSQL to be healthy:
-   ```bash
-   docker compose logs postgres
-   # Look for "database system is ready to accept connections"
-   ```
-2. Check `DATABASE_URL` is correct
-3. Ensure PostgreSQL container is running:
-   ```bash
-   docker compose ps
-   ```
+
+```bash
+# Wait for PostgreSQL
+docker compose logs postgres
+
+# Check DATABASE_URL format
+DATABASE_URL=postgres://user:pass@host:5432/dbname
+```
 
 ## Health Check Returns 503
 
-**Symptom**: `/health` returns 503 or timeout.
+**Symptom**: `/health` returns 503.
 
-**Causes**:
-- Database not connected
-- Backend still starting
-- Migrations running
+**Causes**: Database not connected, migrations running.
 
-**Solutions**:
-1. Check backend logs:
-   ```bash
-   docker compose logs backend
-   ```
-2. Verify database connection:
-   ```bash
-   docker exec n8n_pulse_backend curl -s http://localhost:8001/health
-   ```
+```bash
+docker compose logs backend
+docker exec n8n_pulse_backend curl -s http://localhost:8001/health
+```
 
-## Redirected to /setup When Users Exist
+## Cannot Access /setup
 
-**Symptom**: App redirects to `/setup` even though users exist.
+**Symptom**: 403 or "Setup already completed".
 
-**Cause**: `/api/setup/status` returning `setupRequired: true` incorrectly.
+**Cause**: Expected—`/setup` only works with zero users.
 
-**Solutions**:
-1. Check database has users:
-   ```bash
-   docker exec n8n_pulse_postgres psql -U n8n_pulse -c "SELECT COUNT(*) FROM app_users;"
-   ```
-2. Check backend can query users (database connection)
+**Solution**: Use Admin panel to invite users after first admin exists.
 
 ## Login Fails with 401
 
 **Symptom**: Correct credentials return 401.
 
 **Causes**:
-- Password mismatch (case-sensitive)
-- User doesn't exist
-- Token version mismatch (session invalidated)
+- Wrong password
+- User deactivated
+- Token version mismatch
 
-**Solutions**:
-1. Verify user exists:
-   ```bash
-   docker exec n8n_pulse_postgres psql -U n8n_pulse -c "SELECT email FROM app_users;"
-   ```
-2. Reset password via admin panel or forgot-password flow
+```bash
+# Check user exists
+docker exec n8n_pulse_postgres psql -U n8n_pulse \
+  -c "SELECT email, is_active FROM app_users;"
+```
+
+## Set Password Returns 500 (FIXED)
+
+**Symptom**: `POST /api/auth/set-password` returns 500.
+
+**Previous cause**: `BCRYPT_ROUNDS` was undefined in auth router.
+
+**Status**: ✅ **FIXED** in v1.3.3+
+
+The fix imports `BCRYPT_ROUNDS` directly from config:
+
+```javascript
+const { BCRYPT_ROUNDS: configBcryptRounds } = require('../config');
+const BCRYPT_ROUNDS = (typeof configBcryptRounds === 'number' && configBcryptRounds > 0)
+  ? configBcryptRounds
+  : 10; // fallback
+```
+
+**If still seeing this**: Rebuild the container:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build --force-recreate backend
+```
+
+## Rate Limited (429)
+
+**Symptom**: 429 Too Many Requests.
+
+**Rate limits**:
+- Login: 5 per 15 min
+- Admin API: 100 per min
+- Metrics API: 60 per min
+
+**Solution**: Wait for `retryAfter` period.
 
 ## Cookies Not Being Set
 
-**Symptom**: Login succeeds but subsequent requests fail (not authenticated).
+**Symptom**: Login succeeds but subsequent requests fail.
 
 **Causes**:
-- `COOKIE_SECURE=true` but no HTTPS
-- Cross-origin without proper CORS
-- Browser blocking third-party cookies
+- `COOKIE_SECURE=true` without HTTPS
+- CORS mismatch
+- **Trailing space** in env var (e.g., `COOKIE_SECURE=false `)
 
 **Solutions**:
-1. For local dev without HTTPS:
-   ```bash
-   COOKIE_SECURE=false
-   ```
-2. Ensure `CORS_ORIGIN` matches frontend URL exactly
-3. Ensure frontend and API are same origin (nginx proxy)
+
+```bash
+# For local dev without HTTPS
+COOKIE_SECURE=false
+APP_ENV=development
+
+# Check for trailing spaces in .env
+```
 
 ## CORS Errors
 
-**Symptom**: Browser console shows CORS errors.
+**Symptom**: Browser shows CORS errors.
 
-**Cause**: `CORS_ORIGIN` doesn't match the request origin.
+**Cause**: `CORS_ORIGIN` doesn't match request origin.
 
-**Solution**:
 ```bash
-# Must match exactly
+# Correct
 CORS_ORIGIN=https://pulse.example.com
 
-# NOT
+# Wrong
 CORS_ORIGIN=https://pulse.example.com/  # trailing slash
-CORS_ORIGIN=http://pulse.example.com    # wrong scheme
+CORS_ORIGIN=*                            # fails in production
 ```
 
 ## Metrics Not Showing
 
-**Symptom**: Metrics dashboard is empty.
+**Symptom**: Metrics dashboard empty.
 
 **Causes**:
 - `METRICS_ENABLED=false`
-- No metrics data in database
+- No data in database
 - User lacks `metrics.read.full` permission
 
 **Solutions**:
-1. Enable metrics:
-   ```bash
-   METRICS_ENABLED=true
-   ```
-2. Verify n8n is inserting metrics data
-3. Check user has Analyst or Admin role
 
-## Migrations Failed
-
-**Symptom**: Backend won't start, logs show migration errors.
-
-**Solutions**:
-1. Check migration logs:
-   ```bash
-   docker compose logs backend | grep -i migrat
-   ```
-2. Manually run migrations:
-   ```bash
-   docker exec n8n_pulse_backend npm run migrate up
-   ```
-3. Check database user has schema privileges
-
-## Wrong Client IP in Audit Logs
-
-**Symptom**: Audit logs show `127.0.0.1` or proxy IP instead of real client.
-
-**Cause**: `TRUST_PROXY` not set correctly.
-
-**Solution**:
 ```bash
-# Single proxy (nginx)
-TRUST_PROXY=1
+# Enable metrics
+METRICS_ENABLED=true
 
-# Multiple proxies (CDN + nginx)
-TRUST_PROXY=2
+# Check data
+docker exec n8n_pulse_postgres psql -U n8n_pulse \
+  -c "SELECT COUNT(*) FROM n8n_metrics_snapshot;"
+
+# Check user role (Viewer cannot see full metrics)
 ```
 
-See: [Security Guide - TRUST_PROXY](./security.md#trust_proxy-setting)
+## Instance Metrics Access Denied
 
-## Container Won't Start (Fail-fast)
+**Symptom**: User sees workflows but not instance metrics.
 
-**Symptom**: Backend exits immediately in production.
+**Cause**: User has only tag/workflow scope, not instance scope.
 
-**Cause**: Production fail-fast checks failed.
+**Solution**: Add instance scope to user's group.
 
-**Check logs for**:
-- `JWT_SECRET` too short or placeholder
-- `COOKIE_SECURE=false` in production
-- `CORS_ORIGIN=*`
+## Dashboard Layout Not Saving
 
-**Solution**: Fix environment variables as indicated in error message.
+**Symptom**: Customizations reset on refresh.
+
+**Cause**: localStorage issues.
+
+```javascript
+// In browser console
+localStorage.getItem('n8n_pulse_dashboard_layout')
+localStorage.removeItem('n8n_pulse_dashboard_layout')  // Reset
+```
 
 ## Retention Job Not Running
 
-**Symptom**: Old data not being cleaned up.
+**Symptom**: Old data not cleaned.
 
 **Causes**:
-- `RETENTION_ENABLED=false` (default)
-- `RETENTION_DAYS` set too high
-- Job scheduled but hasn't run yet
+- `RETENTION_ENABLED=false`
+- Job hasn't run yet
 
-**Solutions**:
-1. Enable retention:
-   ```bash
-   RETENTION_ENABLED=true
-   RETENTION_DAYS=90
-   ```
-2. Check retention status:
-   ```bash
-   curl -X GET http://localhost:8899/api/admin/retention/status
-   ```
-3. Manually trigger cleanup (requires admin auth):
-   ```bash
-   curl -X POST http://localhost:8899/api/admin/retention/run
-   ```
-4. Check backend logs for retention output:
-   ```bash
-   docker compose logs backend | grep -i retention
-   ```
+```bash
+RETENTION_ENABLED=true
+RETENTION_DAYS=90
+RETENTION_RUN_AT=03:30
+```
 
-**Note**: The job runs at `RETENTION_RUN_AT` (default 03:30) in server/container time. Only finished executions are deleted—running executions are always preserved.
+## Wrong IP in Audit Logs
+
+**Symptom**: Logs show `127.0.0.1` instead of real IP.
+
+**Cause**: `TRUST_PROXY` not set correctly.
+
+```bash
+TRUST_PROXY=1   # Single proxy
+TRUST_PROXY=2   # Two proxies
+```
 
 ## Verification Commands
 
 ```bash
-# Check all services
+# Services status
 docker compose ps
 
-# Backend health
-curl http://localhost:8899/health
+# Health check
+curl https://pulse.example.com/health
 
 # Setup status
-curl http://localhost:8899/api/setup/status
+curl https://pulse.example.com/api/setup/status
 
-# View logs
+# Logs
 docker compose logs -f backend
 docker compose logs -f frontend
-docker compose logs -f postgres
+
+# Database
+docker exec n8n_pulse_postgres psql -U n8n_pulse \
+  -c "SELECT COUNT(*) FROM app_users;"
 ```

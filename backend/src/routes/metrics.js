@@ -1,11 +1,18 @@
 const express = require('express');
 const { METRICS_ENABLED, METRICS_MAX_TIME_RANGE_DAYS, METRICS_MAX_DATAPOINTS } = require('../config');
+const metricsExplorerService = require('../services/metricsExplorer');
 
 function createMetricsRouter(deps) {
   const {
     pool,
     state,
-    requireAuth, metricsLimiter, getAuthorizationContext, attachAuthz, logAudit, getAuditContext
+    requireAuth,
+    metricsLimiter,
+    getAuthorizationContext,
+    attachAuthz,
+    logAudit,
+    getAuditContext,
+    getUserPermissions
   } = deps;
 
   const router = express.Router();
@@ -140,6 +147,167 @@ router.get('/api/metrics/config', requireAuth, async (req, res) => {
     maxTimeRangeDays: METRICS_MAX_TIME_RANGE_DAYS,
     maxDatapoints: METRICS_MAX_DATAPOINTS,
   });
+});
+
+// ============================================================================
+// ROUTES: METRICS EXPLORER (Prometheus-style generic metrics)
+// ============================================================================
+
+/**
+ * GET /api/metrics/catalog?instanceId=X
+ * Returns catalog of available metrics for an instance
+ * - Requires metrics.read.full permission
+ * - Enforces instance scoping for non-admins
+ */
+router.get('/api/metrics/catalog', requireAuth, metricsLimiter, attachAuthz, async (req, res) => {
+  // Feature flag check
+  if (!METRICS_ENABLED) {
+    return res.status(403).json({ error: 'Metrics feature is disabled' });
+  }
+
+  const instanceId = req.query.instanceId;
+
+  // Validate instanceId
+  if (!validateInstanceId(instanceId)) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'invalid_instance_id', endpoint: 'catalog' }
+    });
+    return res.status(400).json({ error: 'Invalid or missing instanceId' });
+  }
+
+  const permissions = await getUserPermissions(req.user.sub);
+
+  // Require full metrics permission
+  if (!permissions.includes('metrics.read.full')) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'no_full_permission', endpoint: 'catalog', instanceId }
+    });
+    return res.status(403).json({ error: 'Full metrics permission required' });
+  }
+
+  // Check instance metrics access (admin or explicit instance scope required)
+  const accessCheck = await userHasInstanceMetricsAccess(req, instanceId);
+  if (!accessCheck.hasAccess) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'no_instance_scope', endpoint: 'catalog', instanceId }
+    });
+    return res.status(403).json({ error: 'No access to this instance' });
+  }
+
+  try {
+    const catalog = await metricsExplorerService.getMetricsCatalog(pool, instanceId, 100);
+    res.json(catalog);
+  } catch (err) {
+    console.error('Metrics catalog error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/metrics/query
+ * Query metric time-series data with Prometheus semantics
+ * 
+ * Body:
+ * {
+ *   instanceId: string,
+ *   metricName: string,
+ *   from: string (ISO),
+ *   to: string (ISO),
+ *   view: "auto" | "card" | "line" | "breakdown",
+ *   groupByLabel?: string | null,
+ *   filters?: Record<string,string>
+ * }
+ * 
+ * - Requires metrics.read.full permission
+ * - Enforces instance scoping
+ * - Clamps time range to maxTimeRangeDays
+ * - Limits datapoints to maxDatapoints
+ */
+router.post('/api/metrics/query', requireAuth, metricsLimiter, attachAuthz, async (req, res) => {
+  // Feature flag check
+  if (!METRICS_ENABLED) {
+    return res.status(403).json({ error: 'Metrics feature is disabled' });
+  }
+
+  const {
+    instanceId,
+    metricName,
+    from,
+    to,
+    view = 'auto',
+    groupByLabel = null,
+    filters = {}
+  } = req.body;
+
+  // Validate instanceId
+  if (!validateInstanceId(instanceId)) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'invalid_instance_id', endpoint: 'query' }
+    });
+    return res.status(400).json({ error: 'Invalid or missing instanceId' });
+  }
+
+  // Validate metricName
+  if (!metricName || typeof metricName !== 'string' || metricName.length === 0) {
+    return res.status(400).json({ error: 'Invalid or missing metricName' });
+  }
+
+  // Validate view
+  if (!['auto', 'card', 'line', 'breakdown'].includes(view)) {
+    return res.status(400).json({ error: 'Invalid view type. Must be: auto, card, line, or breakdown' });
+  }
+
+  // Validate timestamps
+  if (!validateTimestamp(from) || !validateTimestamp(to)) {
+    return res.status(400).json({ error: 'Invalid timestamp format' });
+  }
+
+  // Validate filters object
+  if (filters && typeof filters !== 'object') {
+    return res.status(400).json({ error: 'Filters must be an object' });
+  }
+
+  const permissions = await getUserPermissions(req.user.sub);
+
+  // Require full metrics permission
+  if (!permissions.includes('metrics.read.full')) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'no_full_permission', endpoint: 'query', instanceId, metricName }
+    });
+    return res.status(403).json({ error: 'Full metrics permission required' });
+  }
+
+  // Check instance metrics access
+  const accessCheck = await userHasInstanceMetricsAccess(req, instanceId);
+  if (!accessCheck.hasAccess) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'no_instance_scope', endpoint: 'query', instanceId, metricName }
+    });
+    return res.status(403).json({ error: 'No access to this instance' });
+  }
+
+  try {
+    const result = await metricsExplorerService.queryMetricTimeseries(pool, {
+      instanceId,
+      metricName,
+      from,
+      to,
+      view,
+      groupByLabel,
+      filters
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('Metrics query error:', err.message, err.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 /**
@@ -429,6 +597,217 @@ router.get('/api/workflows/status', requireAuth, metricsLimiter, attachAuthz, as
     });
   } catch (err) {
     console.error('Workflows status error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// ROUTES: METRICS EXPLORER (Prometheus-style metrics)
+// ============================================================================
+
+/**
+ * GET /api/metrics/explorer/catalog?instance_id=...
+ * Returns catalog of available metrics for an instance
+ * - Admin/Analyst with explicit instance scope: allowed
+ * - Viewer: 403
+ */
+router.get('/api/metrics/explorer/catalog', requireAuth, metricsLimiter, attachAuthz, async (req, res) => {
+  // Feature flag check
+  if (!METRICS_ENABLED) {
+    return res.json({ enabled: false, metrics: [] });
+  }
+
+  const instanceId = req.query.instance_id;
+
+  // Validate instance_id
+  if (!validateInstanceId(instanceId)) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'invalid_instance_id', endpoint: 'catalog' }
+    });
+    return res.status(400).json({ error: 'Invalid or missing instance_id' });
+  }
+
+  const permissions = await getUserPermissions(req.user.sub);
+
+  // Require full metrics permission (not just version)
+  if (!permissions.includes('metrics.read.full')) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'no_full_permission', endpoint: 'catalog', instanceId }
+    });
+    return res.status(403).json({ error: 'Full metrics permission required for Metrics Explorer' });
+  }
+
+  // Check instance metrics access (admin or explicit instance scope required)
+  const accessCheck = await userHasInstanceMetricsAccess(req, instanceId);
+  if (!accessCheck.hasAccess) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'no_instance_scope', endpoint: 'catalog', instanceId }
+    });
+    return res.status(403).json({ error: 'No access to instance metrics. Tag/workflow scopes do not grant instance-level access.' });
+  }
+
+  try {
+    const catalog = await metricsExplorerService.getMetricsCatalog(pool, instanceId);
+    
+    res.json({
+      enabled: true,
+      instanceId,
+      metrics: catalog,
+      count: catalog.length
+    });
+  } catch (err) {
+    console.error('Metrics catalog error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/metrics/explorer/query
+ * Query metric time-series data with optional label filtering and aggregation
+ * - Admin/Analyst with explicit instance scope: allowed
+ * - Viewer: 403
+ * 
+ * Request body:
+ * {
+ *   instanceId: string,
+ *   metricName: string,
+ *   labels: { [key: string]: string },  // optional label filters
+ *   from: string,  // ISO timestamp
+ *   to: string,    // ISO timestamp
+ *   aggregation: "none" | "sum" | "avg" | "max",  // default: "none"
+ *   groupByLabel: string | null  // optional label key to group by
+ * }
+ */
+router.post('/api/metrics/explorer/query', requireAuth, metricsLimiter, attachAuthz, async (req, res) => {
+  // Feature flag check
+  if (!METRICS_ENABLED) {
+    return res.json({ enabled: false });
+  }
+
+  const {
+    instanceId,
+    metricName,
+    labels = {},
+    from,
+    to,
+    aggregation = 'none',
+    groupByLabel = null
+  } = req.body;
+
+  // Validate instance_id
+  if (!validateInstanceId(instanceId)) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'invalid_instance_id', endpoint: 'query' }
+    });
+    return res.status(400).json({ error: 'Invalid or missing instance_id' });
+  }
+
+  // Validate metricName
+  if (!metricName || typeof metricName !== 'string' || metricName.length === 0) {
+    return res.status(400).json({ error: 'Invalid or missing metricName' });
+  }
+
+  // Validate aggregation
+  if (!['none', 'sum', 'avg', 'max'].includes(aggregation)) {
+    return res.status(400).json({ error: 'Invalid aggregation type. Must be: none, sum, avg, or max' });
+  }
+
+  // Validate timestamps
+  if (!validateTimestamp(from) || !validateTimestamp(to)) {
+    return res.status(400).json({ error: 'Invalid timestamp format' });
+  }
+
+  // Validate labels object
+  if (labels && typeof labels !== 'object') {
+    return res.status(400).json({ error: 'Labels must be an object' });
+  }
+
+  const permissions = await getUserPermissions(req.user.sub);
+
+  // Require full metrics permission
+  if (!permissions.includes('metrics.read.full')) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'no_full_permission', endpoint: 'query', instanceId, metricName }
+    });
+    return res.status(403).json({ error: 'Full metrics permission required for Metrics Explorer' });
+  }
+
+  // Check instance metrics access
+  const accessCheck = await userHasInstanceMetricsAccess(req, instanceId);
+  if (!accessCheck.hasAccess) {
+    await logAudit('metrics_access_denied', {
+      ...getAuditContext(req),
+      metadata: { reason: 'no_instance_scope', endpoint: 'query', instanceId, metricName }
+    });
+    return res.status(403).json({ error: 'No access to instance metrics. Tag/workflow scopes do not grant instance-level access.' });
+  }
+
+  try {
+    const result = await metricsExplorerService.queryMetricTimeseries(pool, {
+      instanceId,
+      metricName,
+      filters: labels,  // Map 'labels' from request to 'filters' expected by service
+      from,
+      to,
+      aggregation,
+      groupByLabel
+    });
+
+    res.json({
+      enabled: true,
+      ...result
+    });
+  } catch (err) {
+    console.error('Metrics query error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/metrics/explorer/labels?instance_id=...&metric_name=...&label_key=...
+ * Get available values for a specific label key
+ * Useful for building dynamic filter dropdowns
+ */
+router.get('/api/metrics/explorer/labels', requireAuth, metricsLimiter, attachAuthz, async (req, res) => {
+  if (!METRICS_ENABLED) {
+    return res.json({ enabled: false, values: [] });
+  }
+
+  const { instance_id: instanceId, metric_name: metricName, label_key: labelKey } = req.query;
+
+  if (!validateInstanceId(instanceId)) {
+    return res.status(400).json({ error: 'Invalid or missing instance_id' });
+  }
+
+  if (!metricName || typeof metricName !== 'string') {
+    return res.status(400).json({ error: 'Invalid or missing metric_name' });
+  }
+
+  if (!labelKey || typeof labelKey !== 'string') {
+    return res.status(400).json({ error: 'Invalid or missing label_key' });
+  }
+
+  const permissions = await getUserPermissions(req.user.sub);
+
+  if (!permissions.includes('metrics.read.full')) {
+    return res.status(403).json({ error: 'Full metrics permission required' });
+  }
+
+  const accessCheck = await userHasInstanceMetricsAccess(req, instanceId);
+  if (!accessCheck.hasAccess) {
+    return res.status(403).json({ error: 'No access to instance metrics' });
+  }
+
+  try {
+    const values = await metricsExplorerService.getLabelValues(pool, instanceId, metricName, labelKey);
+    res.json({ enabled: true, labelKey, values });
+  } catch (err) {
+    console.error('Label values error:', err.message);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

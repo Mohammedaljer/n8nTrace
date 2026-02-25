@@ -37,6 +37,9 @@ const METRICS_ENABLED = (process.env.METRICS_ENABLED || 'false').toLowerCase() =
 // Metrics security limits
 const METRICS_MAX_TIME_RANGE_DAYS = parseInt(process.env.METRICS_MAX_TIME_RANGE_DAYS || '30', 10);
 const METRICS_MAX_DATAPOINTS = parseInt(process.env.METRICS_MAX_DATAPOINTS || '1000', 10);
+const METRICS_MAX_BREAKDOWN_ROWS = parseInt(process.env.METRICS_MAX_BREAKDOWN_ROWS || '50', 10);
+const METRICS_MAX_CATALOG_SIZE = parseInt(process.env.METRICS_MAX_CATALOG_SIZE || '200', 10);
+const METRICS_MAX_LABEL_VALUES = parseInt(process.env.METRICS_MAX_LABEL_VALUES || '100', 10);
 
 // Audit log IP: none | raw | hashed. If hashed, AUDIT_LOG_IP_SALT is required.
 const AUDIT_LOG_IP_MODE = (process.env.AUDIT_LOG_IP_MODE || 'raw').toLowerCase();
@@ -75,6 +78,9 @@ module.exports = {
   METRICS_ENABLED,
   METRICS_MAX_TIME_RANGE_DAYS,
   METRICS_MAX_DATAPOINTS,
+  METRICS_MAX_BREAKDOWN_ROWS,
+  METRICS_MAX_CATALOG_SIZE,
+  METRICS_MAX_LABEL_VALUES,
 
   AUDIT_LOG_IP_MODE,
   AUDIT_LOG_IP_SALT,

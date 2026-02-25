@@ -47,7 +47,7 @@ import { SlowNodesChart } from "@/components/widgets/SlowNodesChart";
 import { FailedExecutionsTable } from "@/components/widgets/FailedExecutionsTable";
 import { MetricsKpiCards } from "@/components/widgets/MetricsKpiCards";
 import { MetricsChartsGrid } from "@/components/widgets/MetricsCharts";
-import { MetricsInstanceSelect } from "@/components/widgets/MetricsInstanceSelect";
+import { MetricsExplorer } from "@/components/widgets/MetricsExplorer";
 import { useMetrics } from "@/data/MetricsContext";
 import { Activity } from "lucide-react";
 
@@ -100,23 +100,21 @@ function FailedExecutionsWidget({ size }: { size: WidgetSize }) {
 
 // Metrics widget wrappers - these use the MetricsProvider from MetricsSection
 function InstanceMetricsWidget(_props: { size: WidgetSize }) {
-  const { availableInstances, selectedInstanceId } = useMetrics();
-  const showSelector = availableInstances.length > 1;
+  const { selectedInstanceId } = useMetrics();
   
   return (
     <div className="space-y-4">
-      {/* Header with instance selector */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Activity className="h-5 w-5" />
           Instance Metrics
-          {selectedInstanceId && (
+          {selectedInstanceId && selectedInstanceId !== 'all' && (
             <span className="text-sm font-normal text-muted-foreground">
               ({selectedInstanceId})
             </span>
           )}
         </h3>
-        {showSelector && <MetricsInstanceSelect />}
       </div>
       <MetricsKpiCards loading={false} />
     </div>
@@ -125,6 +123,11 @@ function InstanceMetricsWidget(_props: { size: WidgetSize }) {
 
 function InstanceMetricsChartsWidget(_props: { size: WidgetSize }) {
   return <MetricsChartsGrid loading={false} />;
+}
+
+function MetricsExplorerWidget(_props: { size: WidgetSize }) {
+  const { selectedInstanceId } = useMetrics();
+  return <MetricsExplorer instanceId={selectedInstanceId} />;
 }
 
 // Widget Registry - includes both analytics and metrics widgets
@@ -156,13 +159,26 @@ export const WIDGET_REGISTRY: readonly WidgetDefinition[] = [
     requiresPermission: "metrics.read.full",
     requiresMetricsEnabled: true,
   },
+  {
+    id: "metrics-explorer",
+    title: "Metrics Explorer",
+    description: "Query Prometheus-style metrics with labels and aggregations",
+    component: MetricsExplorerWidget,
+    defaultOrder: 2,
+    defaultSize: "large",
+    defaultVisible: false, // Hidden by default
+    allowedSizes: ["medium", "large"],
+    category: "metrics",
+    requiresPermission: "metrics.read.full",
+    requiresMetricsEnabled: true,
+  },
   // Analytics widgets
   {
     id: "kpi-cards",
     title: "KPI Cards",
     description: "Key performance metrics: runs, failures, durations",
     component: KpiCardsWidget,
-    defaultOrder: 2,
+    defaultOrder: 3,
     defaultSize: "large",
     defaultVisible: true,
     allowedSizes: ["medium", "large"],
@@ -173,7 +189,7 @@ export const WIDGET_REGISTRY: readonly WidgetDefinition[] = [
     title: "Executions Over Time",
     description: "Adaptive time buckets: hourly, daily, or weekly",
     component: TimeSeriesWidget,
-    defaultOrder: 3,
+    defaultOrder: 4,
     defaultSize: "medium",
     defaultVisible: true,
     allowedSizes: ["small", "medium", "large"],
@@ -184,7 +200,7 @@ export const WIDGET_REGISTRY: readonly WidgetDefinition[] = [
     title: "Slowest Nodes",
     description: "Top 10 nodes by P95 execution time",
     component: SlowNodesWidget,
-    defaultOrder: 4,
+    defaultOrder: 5,
     defaultSize: "small",
     defaultVisible: true,
     allowedSizes: ["small", "medium"],
@@ -195,7 +211,7 @@ export const WIDGET_REGISTRY: readonly WidgetDefinition[] = [
     title: "Recent Failures",
     description: "Most recent workflow errors",
     component: FailedExecutionsWidget,
-    defaultOrder: 5,
+    defaultOrder: 6,
     defaultSize: "large",
     defaultVisible: true,
     allowedSizes: ["small", "medium", "large"],
