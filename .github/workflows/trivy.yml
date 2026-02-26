@@ -13,13 +13,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t n8npulse:test .
+      - name: Build frontend image
+        run: docker build -t n8npulse-frontend:test ./frontend
 
-      - name: Run Trivy vulnerability scanner
+      - name: Scan frontend image
         uses: aquasecurity/trivy-action@0.20.0
         with:
-          image-ref: 'n8npulse:test'
+          image-ref: 'n8npulse-frontend:test'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Build backend image
+        run: docker build -t n8npulse-backend:test ./backend
+
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: 'n8npulse-backend:test'
           format: 'table'
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
