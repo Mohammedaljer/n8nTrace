@@ -30,7 +30,7 @@ jobs:
         run: docker build -t n8npulse-frontend:test ./frontend
 
       - name: Trivy frontend image (OS & library)
-        uses: aquasecurity/trivy-action@v0.31.0
+        uses: aquasecurity/trivy-action@0.31.0
         with:
           scan-type: "image"
           image-ref: "n8npulse-frontend:test"
@@ -60,7 +60,7 @@ jobs:
 
       # 1) OS vulnerabilities: scan the IMAGE
       - name: Trivy backend image (OS only)
-        uses: aquasecurity/trivy-action@v0.31.0
+        uses: aquasecurity/trivy-action@0.31.0
         with:
           scan-type: "image"
           image-ref: "n8npulse-backend:test"
