@@ -3,7 +3,14 @@ name: Trivy Scan
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - "backend/**"
+      - "frontend/**"
   pull_request:
+    branches: [ "main" ]
+    paths:
+      - "backend/**"
+      - "frontend/**"
 
 jobs:
   trivy:
@@ -19,10 +26,10 @@ jobs:
       - name: Scan frontend image
         uses: aquasecurity/trivy-action@0.20.0
         with:
-          image-ref: 'n8npulse-frontend:test'
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
+          image-ref: "n8npulse-frontend:test"
+          format: "table"
+          exit-code: "0"
+          severity: "CRITICAL,HIGH"
 
       - name: Build backend image
         run: docker build -t n8npulse-backend:test ./backend
@@ -30,7 +37,7 @@ jobs:
       - name: Scan backend image
         uses: aquasecurity/trivy-action@0.20.0
         with:
-          image-ref: 'n8npulse-backend:test'
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
+          image-ref: "n8npulse-backend:test"
+          format: "table"
+          exit-code: "0"
+          severity: "CRITICAL,HIGH"
