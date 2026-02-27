@@ -3,42 +3,68 @@ name: Trivy Scan
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
       - "backend/**"
       - "frontend/**"
+      - ".github/workflows/trivy.yml"
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
       - "backend/**"
       - "frontend/**"
+      - ".github/workflows/trivy.yml"
 
 jobs:
-  trivy:
+  security:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+
       - name: Build frontend image
         run: docker build -t n8npulse-frontend:test ./frontend
 
-      - name: Scan frontend image
+
+      - name: Trivy frontend image (OS only)
         uses: aquasecurity/trivy-action@0.20.0
         with:
+          scan-type: "image"
           image-ref: "n8npulse-frontend:test"
           format: "table"
           exit-code: "0"
           severity: "CRITICAL,HIGH"
+          vuln-type: "os"
+          scanners: "vuln"
+
+
+      - name: Frontend npm audit (omit dev)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --omit=dev
+
 
       - name: Build backend image
         run: docker build -t n8npulse-backend:test ./backend
 
-      - name: Scan backend image
+
+      - name: Trivy backend image (OS only)
         uses: aquasecurity/trivy-action@0.20.0
         with:
+          scan-type: "image"
           image-ref: "n8npulse-backend:test"
           format: "table"
           exit-code: "0"
           severity: "CRITICAL,HIGH"
+          vuln-type: "os"
+          scanners: "vuln"
+
+
+      - name: Backend npm audit (omit dev)
+        working-directory: backend
+        run: |
+          npm ci
+          npm audit --omit=dev
