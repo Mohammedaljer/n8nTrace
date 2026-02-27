@@ -1,17 +1,21 @@
 # Stage 1: deps (install prod dependencies only)
-FROM node:22-alpine AS deps
+FROM node:22.14.0-alpine AS deps
 WORKDIR /app
+RUN npm install -g npm@11.11.0
+
 COPY package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 
 
 # Stage 2: runtime (no .env or secrets copied)
-FROM node:22-alpine AS runtime
+FROM node:22.14.0-alpine AS runtime
 
 # Healthcheck needs curl
 #RUN apk add --no-cache curl
 
 WORKDIR /app
+RUN npm install -g npm@11.11.0
+
 # Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 

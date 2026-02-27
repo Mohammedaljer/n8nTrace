@@ -3,7 +3,7 @@
 # API requests are proxied to the backend container via nginx.
 
 # Stage 1: Build
-FROM node:24-alpine AS builder
+FROM node:22.14.0-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -27,6 +27,7 @@ EXPOSE 80
 
 # No curl: just check port is open
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD nc -z 127.0.0.1 80 || exit 1
+  CMD ["CMD-SHELL", "nginx -t >/dev/null 2>&1 || exit 1"]
+
 
 CMD ["nginx", "-g", "daemon off;"]
