@@ -28,15 +28,16 @@ jobs:
         run: docker build -t n8npulse-frontend:test ./frontend
 
 
-      - name: Trivy frontend image (OS only)
+      - name: Trivy frontend image (OS & library)
         uses: aquasecurity/trivy-action@0.20.0
         with:
           scan-type: "image"
           image-ref: "n8npulse-frontend:test"
           format: "table"
-          exit-code: "0"
+          exit-code: "1"
+          ignore-unfixed: true
           severity: "CRITICAL,HIGH"
-          vuln-type: "os"
+          vuln-type: "os,library"
           scanners: "vuln"
 
 
@@ -51,15 +52,16 @@ jobs:
         run: docker build -t n8npulse-backend:test ./backend
 
 
-      - name: Trivy backend image (OS only)
+      - name: Trivy backend image (OS & library)
         uses: aquasecurity/trivy-action@0.20.0
         with:
           scan-type: "image"
           image-ref: "n8npulse-backend:test"
           format: "table"
-          exit-code: "0"
+          exit-code: "1"
+          ignore-unfixed: true
           severity: "CRITICAL,HIGH"
-          vuln-type: "os"
+          vuln-type: "os,library"
           scanners: "vuln"
 
 
