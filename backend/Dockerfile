@@ -1,36 +1,28 @@
 # Stage 1: deps (install prod dependencies only)
 FROM node:22.14.0-alpine AS deps
 WORKDIR /app
-RUN npm install -g npm@11.11.0
 
-COPY package*.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
+ENV npm_config_cache=/tmp/.npm
+
+COPY package.json package-lock.json ./
+
+RUN npm ci --omit=dev --no-audit --no-fund \
+  && rm -rf /tmp/.npm
 
 
 # Stage 2: runtime (no .env or secrets copied)
 FROM node:22.14.0-alpine AS runtime
-
-# Healthcheck needs curl
-#RUN apk add --no-cache curl
-
 WORKDIR /app
+
 RUN apk update && apk upgrade --no-cache
-RUN npm install -g npm@11.11.0
 
-
-
-# Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copy app files (ensure ownership for non-root user)
-COPY --chown=node:node package*.json ./
 COPY --chown=node:node index.js ./
-COPY --chown=node:node src ./src 
+COPY --chown=node:node src ./src
 COPY --chown=node:node migrations ./migrations
+COPY --chown=node:node package.json ./
 
-# Do NOT copy .env, .env.*, or any secret files
-
-# Run as non-root (node user exists in node:alpine images)
 USER node
 
 EXPOSE 8001
