@@ -1,0 +1,44 @@
+name: Trivy Scan
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+
+jobs:
+  trivy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build frontend image
+        run: docker build -t n8npulse-frontend:test ./frontend
+
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: "n8npulse-frontend:test"
+          format: "table"
+          exit-code: "0"
+          severity: "CRITICAL,HIGH"
+
+      - name: Build backend image
+        run: docker build -t n8npulse-backend:test ./backend
+
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: "n8npulse-backend:test"
+          format: "table"
+          exit-code: "0"
+          severity: "CRITICAL,HIGH"
