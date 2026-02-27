@@ -50,6 +50,11 @@ jobs:
 
       - name: Build backend image
         run: docker build -t n8npulse-backend:test ./backend
+      - name: Debug backend lock + image deps
+        run: |
+          echo "Commit:" $GITHUB_SHA
+          node -e "const fs=require('fs'); const s=fs.readFileSync('backend/package-lock.json','utf8'); console.log('lock has 10.2.3?', s.includes('\"version\": \"10.2.3\"'))"
+          docker run --rm n8npulse-backend:test node -e "console.log('minimatch in image:', require('minimatch/package.json').version)"
 
 
       - name: Trivy backend image (OS & library)
