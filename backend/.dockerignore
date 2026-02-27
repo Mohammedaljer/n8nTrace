@@ -1,0 +1,62 @@
+# Backend Docker build context exclusions
+# Keep build context minimal and secure
+
+# Dependencies (will be installed fresh in container)
+node_modules
+**/node_modules
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Secrets (CRITICAL - never include in image)
+.env
+.env.*
+*.pem
+*.key
+*.crt
+secrets/
+
+# Git
+.git
+.gitignore
+.gitattributes
+.github
+
+# IDE
+.vscode
+.idea
+
+# System
+.DS_Store
+Thumbs.db
+
+# Tests (not needed in production image)
+tests
+**/tests
+__tests__
+coverage
+.nyc_output
+
+# Documentation (not needed in image)
+docs
+*.md
+
+# Docker files (avoid recursive inclusion)
+Dockerfile*
+docker-compose*.yml
+
+# Build artifacts
+dist
+build
+.gitleaks.toml
+jest.config.js
+start.sh
+audit-ci.json
+docker-entrypoint.sh
+/cosign
+*.env.local
+*.env.production
