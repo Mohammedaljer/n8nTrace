@@ -3,7 +3,7 @@
 # API requests are proxied to the backend container via nginx.
 
 # Stage 1: Build
-FROM node:24-alpine AS builder
+FROM node:22.14.0-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -16,7 +16,8 @@ RUN npm run build
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine AS production
-
+RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache --upgrade libpng
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
@@ -27,6 +28,7 @@ EXPOSE 80
 
 # No curl: just check port is open
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD nc -z 127.0.0.1 80 || exit 1
+  CMD ["nginx", "-t"]
+
 
 CMD ["nginx", "-g", "daemon off;"]
