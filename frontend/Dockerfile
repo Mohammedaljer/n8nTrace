@@ -16,7 +16,7 @@ RUN npm run build
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine AS production
-RUN apk update && apk upgrade --no-cache
+RUN apk add --no-cache ca-certificates
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
@@ -27,7 +27,7 @@ EXPOSE 80
 
 # No curl: just check port is open
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD ["CMD-SHELL", "nginx -t >/dev/null 2>&1 || exit 1"]
+  CMD ["nginx", "-t"]
 
 
 CMD ["nginx", "-g", "daemon off;"]
