@@ -1,6 +1,7 @@
 name: Trivy Scan
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "main" ]
     paths:
