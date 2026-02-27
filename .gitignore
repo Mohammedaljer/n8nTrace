@@ -129,7 +129,6 @@ Build.md
 !Workflows/
 !Workflows/README.md
 # Local DB/volumes if you use them
-data/
 volumes/
 
 # NPM/Yarn/Pnpm extra
