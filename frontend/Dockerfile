@@ -17,6 +17,7 @@ RUN npm run build
 # Stage 2: Serve with nginx
 FROM nginx:alpine AS production
 RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache --upgrade libpng
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
