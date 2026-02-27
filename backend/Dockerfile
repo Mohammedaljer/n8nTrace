@@ -14,7 +14,10 @@ FROM node:22.14.0-alpine AS runtime
 #RUN apk add --no-cache curl
 
 WORKDIR /app
+RUN apk update && apk upgrade --no-cache
 RUN npm install -g npm@11.11.0
+
+
 
 # Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
