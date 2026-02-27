@@ -51,7 +51,7 @@ jobs:
         run: |
           echo "Commit:" $GITHUB_SHA
           node -e "const fs=require('fs'); const s=fs.readFileSync('backend/package-lock.json','utf8'); console.log('lock has 10.2.3?', s.includes('\"version\": \"10.2.3\"'))"
-          docker run --rm n8npulse-backend:test /nodejs/bin/node -e "console.log('minimatch in image:', require('minimatch/package.json').version)"
+          docker run --rm --entrypoint /nodejs/bin/node -w /app n8npulse-backend:test -e "console.log('minimatch in image:', require('minimatch/package.json').version)"
 
       - name: Trivy backend image (OS & library & secrets)
         uses: aquasecurity/trivy-action@0.31.0
