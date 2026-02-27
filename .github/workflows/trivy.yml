@@ -23,13 +23,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-
+      # ------------------------
+      # Frontend
+      # ------------------------
       - name: Build frontend image
         run: docker build -t n8npulse-frontend:test ./frontend
 
-
       - name: Trivy frontend image (OS & library)
-        uses: aquasecurity/trivy-action@0.20.0
+        uses: aquasecurity/trivy-action@v0.31.0
         with:
           scan-type: "image"
           image-ref: "n8npulse-frontend:test"
@@ -38,8 +39,6 @@ jobs:
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
           vuln-type: "os,library"
-          scanners: "vuln"
-
 
       - name: Frontend npm audit (omit dev)
         working-directory: frontend
@@ -47,18 +46,21 @@ jobs:
           npm ci
           npm audit --omit=dev
 
-
+      # ------------------------
+      # Backend
+      # ------------------------
       - name: Build backend image
         run: docker build -t n8npulse-backend:test ./backend
+
       - name: Debug backend lock + image deps
         run: |
           echo "Commit:" $GITHUB_SHA
           node -e "const fs=require('fs'); const s=fs.readFileSync('backend/package-lock.json','utf8'); console.log('lock has 10.2.3?', s.includes('\"version\": \"10.2.3\"'))"
           docker run --rm n8npulse-backend:test node -e "console.log('minimatch in image:', require('minimatch/package.json').version)"
 
-
-      - name: Trivy backend image (OS & library)
-        uses: aquasecurity/trivy-action@0.20.0
+      # 1) OS vulnerabilities: scan the IMAGE
+      - name: Trivy backend image (OS only)
+        uses: aquasecurity/trivy-action@v0.31.0
         with:
           scan-type: "image"
           image-ref: "n8npulse-backend:test"
@@ -66,9 +68,19 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
-          vuln-type: "os,library"
-          scanners: "vuln"
+          vuln-type: "os"
 
+      # 2) Node vulnerabilities: scan the FILESYSTEM inside the container
+      # This avoids the "minimatch (package.json) installed 10.2.2" mismatch you saw.
+      - name: Trivy backend container filesystem (libraries)
+        run: |
+          docker create --name backend_scan n8npulse-backend:test
+          docker cp backend_scan:/app ./_backend_app
+          docker rm -f backend_scan
+
+          docker run --rm -v "$PWD/_backend_app:/scan" aquasec/trivy:0.51.1 \
+            fs --format table --exit-code 1 --ignore-unfixed \
+            --severity HIGH,CRITICAL --scanners vuln --vuln-type library /scan
 
       - name: Backend npm audit (omit dev)
         working-directory: backend
