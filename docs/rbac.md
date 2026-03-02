@@ -95,6 +95,8 @@ Users with only tag or workflow scopes **cannot** access instance-level metrics 
 | `GET /api/admin/roles` | 200 | 403 | 403 | 401 |
 | `GET /api/admin/audit-logs` | 200 | 403 | 403 | 401 |
 | `GET /api/admin/retention/status` | 200 | 403 | 403 | 401 |
+| `POST /api/admin/users/:userId/revoke-sessions` | 200 | 403 | 403 | 401 |
+| `POST /api/admin/users/:userId/unlock` | 200 | 403 | 403 | 401 |
 
 ### Data Endpoints
 

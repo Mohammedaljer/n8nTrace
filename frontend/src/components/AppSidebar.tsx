@@ -129,6 +129,13 @@ export function AppSidebar() {
           <DataStatusBar />
         </div>
       )}
+
+      <div className={cn(
+        "border-t border-sidebar-border py-2 text-center text-[11px] text-sidebar-muted/60 select-none",
+        collapsed ? "px-1" : "px-4"
+      )}>
+        {collapsed ? `v${__APP_VERSION__}`.slice(0, 4) : `n8n Pulse v${__APP_VERSION__}`}
+      </div>
     </aside>
   );
 }

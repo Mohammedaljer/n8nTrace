@@ -1,11 +1,11 @@
 const { 
-  METRICS_MAX_TIME_RANGE_DAYS, 
   METRICS_MAX_DATAPOINTS,
   METRICS_MAX_BREAKDOWN_ROWS,
   METRICS_MAX_CATALOG_SIZE,
   METRICS_MAX_LABEL_VALUES
 } = require('../config');
 const { labelsHash } = require('../utils/labels');
+const { parseAndClampTimeRange } = require('../utils/timeRange');
 
 /**
  * Metrics Explorer Service
@@ -16,27 +16,6 @@ const { labelsHash } = require('../utils/labels');
  * - Histogram: simple mode (average from _sum/_count)
  * - Summary: quantile values
  */
-
-/**
- * Parse and clamp time range to respect METRICS_MAX_TIME_RANGE_DAYS
- */
-function parseAndClampTimeRange(from, to) {
-  const now = new Date();
-  let fromDate = from ? new Date(from) : new Date(now.getTime() - 24 * 60 * 60 * 1000); // Default: last 24h
-  let toDate = to ? new Date(to) : now;
-  
-  // Ensure dates are valid
-  if (isNaN(fromDate.getTime())) fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  if (isNaN(toDate.getTime())) toDate = now;
-  
-  // Clamp range to max allowed days
-  const maxMs = METRICS_MAX_TIME_RANGE_DAYS * 24 * 60 * 60 * 1000;
-  if (toDate - fromDate > maxMs) {
-    fromDate = new Date(toDate.getTime() - maxMs);
-  }
-  
-  return { fromDate, toDate };
-}
 
 /**
  * Get metrics catalog for an instance
@@ -410,12 +389,13 @@ async function queryLineView(pool, seriesIds, series, fromDate, toDate, metricTy
   const aggSql = aggFunctions[aggregation] || 'AVG(value)';
 
   // Query samples with time bucketing and dynamic aggregation
+  // Bucket formula: to_timestamp(floor(epoch / bucket_size) * bucket_size)
+  // This groups all timestamps within the same bucket_size-second window.
   const samplesQuery = `
     WITH bucketed_samples AS (
       SELECT 
         series_id,
-        date_trunc('second', ts) + 
-          (EXTRACT(EPOCH FROM ts)::bigint / $4) * ($4 || ' seconds')::interval as bucket_ts,
+        to_timestamp(floor(EXTRACT(EPOCH FROM ts) / $4) * $4) as bucket_ts,
         ${aggSql} as agg_value,
         MIN(value) as min_value,
         MAX(value) as max_value,

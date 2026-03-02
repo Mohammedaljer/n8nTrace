@@ -9,6 +9,7 @@ import {
   Download,
   Share2,
   User,
+  Info,
 } from "lucide-react";
 import { useData } from "@/data/DataContext";
 import { useAuth } from "@/security/AuthContext";
@@ -117,6 +118,21 @@ export default function HelpPage() {
               Exports filtered node execution data (node name/type, timing, items out).
             </p>
           </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-3 pb-2">
+          <Info className="h-5 w-5 text-primary" />
+          <CardTitle className="text-base">About n8n Pulse</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm space-y-1">
+          <p>
+            <span className="text-muted-foreground">Version:</span>{" "}
+            <span className="font-mono font-medium">v{__APP_VERSION__}</span>
+          </p>
+          <p className="text-muted-foreground">
+            Self-hosted analytics dashboard for n8n workflows &amp; instance health.
+          </p>
         </CardContent>
       </Card>
     </PageShell>

@@ -7,9 +7,7 @@
  * 
  * @type {import('node-pg-migrate').ColumnDefinitions | undefined}
  */
-export const shorthands = undefined;
-
-export const up = (pgm) => {
+exports.up = (pgm) => {
   // Create the n8n_metrics_snapshot table
   pgm.createTable('n8n_metrics_snapshot', {
     id: { 
@@ -103,7 +101,7 @@ export const up = (pgm) => {
   `);
 };
 
-export const down = (pgm) => {
+exports.down = (pgm) => {
   // Remove permissions
   pgm.sql(`
     DELETE FROM permissions WHERE key IN (

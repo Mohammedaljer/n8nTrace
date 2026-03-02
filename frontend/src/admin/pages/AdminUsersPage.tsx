@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { AdminGuard } from "@/admin/components/AdminGuard";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SkeletonTable } from "@/components/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -20,7 +22,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Plus, Pencil, Search, UserX, UserCheck, Trash2, Copy, Check, 
-  KeyRound, Link as LinkIcon, RefreshCw 
+  KeyRound, Link as LinkIcon, RefreshCw, LockOpen 
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { getDataConfig } from "@/data/config";
@@ -32,6 +34,8 @@ type UserRow = {
   is_active: boolean;
   created_at: string;
   password_set_at: string | null;
+  failed_login_attempts: number | null;
+  locked_until: string | null;
   groups: GroupRow[];
 };
 
@@ -68,6 +72,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   // Add dialog
@@ -105,6 +110,7 @@ export default function AdminUsersPage() {
 
   const loadAll = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [uRes, gRes] = await Promise.all([
         fetch(`${API_BASE}/api/admin/users`, { credentials: "include" }),
@@ -117,6 +123,8 @@ export default function AdminUsersPage() {
       setUsers((await uRes.json()) as UserRow[]);
       const gData = (await gRes.json()) as Array<{ id: string; name: string }>;
       setGroups(gData.map((x) => ({ id: x.id, name: x.name })));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load users");
     } finally {
       setLoading(false);
     }
@@ -356,6 +364,30 @@ export default function AdminUsersPage() {
     await loadAll();
   };
 
+  const isUserLocked = (u: UserRow) =>
+    !!u.locked_until && new Date(u.locked_until) > new Date();
+
+  const submitUnlock = async (u: UserRow) => {
+    const r = await fetch(`${API_BASE}/api/admin/users/${u.id}/unlock`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+    });
+
+    if (!r.ok) {
+      const serverMsg = await readApiError(r);
+      toast({
+        title: "Failed",
+        description: serverMsg || `Unlock failed (HTTP ${r.status}).`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({ title: "Account unlocked", description: u.email });
+    await loadAll();
+  };
+
   const formatExpiry = (dateStr: string | null) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
@@ -373,6 +405,7 @@ export default function AdminUsersPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
+              aria-label="Search users"
               data-testid="users-search-input"
             />
           </div>
@@ -385,13 +418,11 @@ export default function AdminUsersPage() {
         </div>
 
         {loading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-          </div>
+          <SkeletonTable rows={6} columns={4} />
+        ) : loadError ? (
+          <ErrorState message="Failed to load users" details={loadError} onRetry={loadAll} />
         ) : (
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -404,8 +435,14 @@ export default function AdminUsersPage() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      No users found.
+                    <TableCell colSpan={4} className="p-0">
+                      <EmptyState
+                        icon={<Search className="h-10 w-10" />}
+                        title="No users found"
+                        description={search ? "Try a different search term." : "Add a user to get started."}
+                        actionLabel={!search ? "Add User" : undefined}
+                        onAction={!search ? openAdd : undefined}
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -435,9 +472,16 @@ export default function AdminUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={u.is_active ? "secondary" : "outline"}>
-                          {u.is_active ? "Active" : "Inactive"}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1">
+                          <Badge variant={u.is_active ? "secondary" : "outline"}>
+                            {u.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                          {isUserLocked(u) && (
+                            <Badge variant="destructive" className="text-xs">
+                              Locked
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
@@ -492,6 +536,19 @@ export default function AdminUsersPage() {
                               title="Activate"
                             >
                               <UserCheck className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {isUserLocked(u) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => void submitUnlock(u)}
+                              aria-label={`Unlock ${u.email}`}
+                              title="Unlock account"
+                              className="text-amber-600 hover:text-amber-700 dark:text-amber-400"
+                            >
+                              <LockOpen className="h-4 w-4" />
                             </Button>
                           )}
 

@@ -33,8 +33,8 @@ All configuration is via environment variables. Never commit real secrets.
 |----------|---------|-------------|
 | `APP_ENV` | `production` | `production` enables fail-fast security checks |
 | `APP_URL` | `http://localhost:3000` (dev) | Public URL for links |
-| `PORT` | `8001` | Backend HTTP port (internal) |
-| `HTTP_PORT` | `8899` | Frontend exposed port |
+| `PORT` | `8001` | Application HTTP port (internal) |
+| `HTTP_PORT` | `8899` | Published port (Docker host mapping) |
 
 > **Important**: In production, `APP_ENV=production` enforces security requirements.
 
@@ -46,16 +46,24 @@ All configuration is via environment variables. Never commit real secrets.
 | `COOKIE_SAMESITE` | `lax` | Cookie SameSite policy |
 | `COOKIE_DOMAIN` | (empty) | Cookie domain |
 | `CORS_ORIGIN` | (required in prod) | Frontend origin URL |
-| `TRUST_PROXY` | `1` | Proxy hops to trust |
+| `TRUST_PROXY` | `false` | Proxy hops to trust (see [Proxy Trust Model](./architecture.md#proxy-trust-model)) |
+| `PASSWORD_MIN_LENGTH` | `12` | Minimum password length |
+| `ACCOUNT_LOCKOUT_THRESHOLD` | `10` | Failed login attempts before lockout |
+| `ACCOUNT_LOCKOUT_DURATION_MINUTES` | `15` | Lockout duration in minutes |
+| `CSP_REPORT_ONLY` | `false` | CSP report-only mode (for testing) |
+| `CSP_REPORT_URI` | (empty) | URL for CSP violation reports |
+| `LOG_FORMAT` | `json` (prod) / `dev` (dev) | HTTP request log format (Morgan) |
 
 > **Warning**: In production, backend refuses to start if `COOKIE_SECURE=false`.
+
+> **Note**: Set `TRUST_PROXY=1` when behind a reverse proxy (Traefik, Caddy, NGINX, ALB). Leave as `false` for direct access. See [Architecture → Proxy Trust Model](./architecture.md#proxy-trust-model).
 
 ## Privacy / GDPR
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AUDIT_LOG_IP_MODE` | `raw` | `raw`, `hashed`, or `none` |
-| `AUDIT_LOG_IP_SALT` | — | Required if mode is `hashed` (min 32 chars) |
+| `AUDIT_LOG_IP_SALT` | — | Required if mode is `hashed` (recommended min 32 chars) |
 
 ## Authentication
 
@@ -127,7 +135,7 @@ The ingest user has least-privilege access to execution tables only.
 | `POSTGRES_DB` | `n8n_pulse` | Database name |
 | `DB_POOL_MAX` | `20` | Connection pool max |
 | `DB_IDLE_TIMEOUT` | `30000` | Idle timeout (ms) |
-| `DB_CONNECT_TIMEOUT` | `10000` | Connect timeout (ms) |
+| `DB_CONNECT_TIMEOUT` | `5000` | Connect timeout (ms) |
 
 ## Example .env File
 

@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { AdminGuard } from "@/admin/components/AdminGuard";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SkeletonTable } from "@/components/skeleton";
 import {
   Table,
   TableBody,
@@ -101,6 +103,7 @@ export default function AdminGroupsPage() {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [roles, setRoles] = useState<RoleRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
 
@@ -120,6 +123,7 @@ export default function AdminGroupsPage() {
 
   const loadAll = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [gRes, rRes] = await Promise.all([
         fetch(`${API_BASE}/api/admin/groups`, { credentials: "include" }),
@@ -131,6 +135,8 @@ export default function AdminGroupsPage() {
 
       setGroups((await gRes.json()) as GroupRow[]);
       setRoles((await rRes.json()) as RoleRow[]);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load groups");
     } finally {
       setLoading(false);
     }
@@ -279,6 +285,7 @@ export default function AdminGroupsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
+              aria-label="Search groups"
             />
           </div>
           <div className="flex gap-2">
@@ -290,13 +297,11 @@ export default function AdminGroupsPage() {
         </div>
 
         {loading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-          </div>
+          <SkeletonTable rows={6} columns={5} />
+        ) : loadError ? (
+          <ErrorState message="Failed to load groups" details={loadError} onRetry={loadAll} />
         ) : (
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -310,8 +315,14 @@ export default function AdminGroupsPage() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      No groups found.
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState
+                        icon={<Search className="h-10 w-10" />}
+                        title="No groups found"
+                        description={search ? "Try a different search term." : "Create a group to manage role-based access."}
+                        actionLabel={!search ? "Add Group" : undefined}
+                        onAction={!search ? openAddDialog : undefined}
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (

@@ -7,45 +7,45 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
 <!-- TOC -->
 
 - [Backend Architecture](#backend-architecture)
-  - [Table of Contents](#table-of-contents)
-  - [Technology Stack](#technology-stack)
-  - [Project Structure](#project-structure)
-  - [Database Schema](#database-schema)
-    - [Tables Overview](#tables-overview)
-    - [Primary Keys](#primary-keys)
-    - [Core Tables](#core-tables)
-      - [`app_users`](#app_users)
-      - [`user_password_tokens`](#user_password_tokens)
-      - [`executions` (multi-tenant)](#executions-multi-tenant)
-      - [Metrics Explorer Tables](#metrics-explorer-tables)
-  - [Migrations](#migrations)
-  - [API Endpoints](#api-endpoints)
-    - [Health](#health)
-    - [Setup (First Run)](#setup-first-run)
-    - [Authentication](#authentication)
-    - [Data (Scope-filtered)](#data-scope-filtered)
-    - [Metrics](#metrics)
-      - [Metrics Catalog Behavior](#metrics-catalog-behavior)
-      - [Aggregation Parameter](#aggregation-parameter)
-      - [Metric Type Semantics](#metric-type-semantics)
-    - [Admin (requires `admin:users` permission)](#admin-requires-adminusers-permission)
-    - [Debug (development only)](#debug-development-only)
-  - [RBAC (Role-Based Access Control)](#rbac-role-based-access-control)
-    - [Default Roles](#default-roles)
-    - [Default Permissions](#default-permissions)
-    - [Role → Permission Mapping](#role--permission-mapping)
-    - [Scope Types](#scope-types)
-  - [Authentication Flow](#authentication-flow)
-    - [Token Invalidation](#token-invalidation)
-  - [n8n Data Ingestion](#n8n-data-ingestion)
-    - [PULSE\_INGEST\_USER](#pulse_ingest_user)
-  - [Building \& Running](#building--running)
-    - [Local Development](#local-development)
-    - [Docker](#docker)
-    - [Health Check](#health-check)
-  - [Environment Variables](#environment-variables)
-    - [Required](#required)
-    - [Optional](#optional)
+    - [Table of Contents](#table-of-contents)
+    - [Technology Stack](#technology-stack)
+    - [Project Structure](#project-structure)
+    - [Database Schema](#database-schema)
+        - [Tables Overview](#tables-overview)
+        - [Primary Keys](#primary-keys)
+        - [Core Tables](#core-tables)
+            - [app_users](#app_users)
+            - [user_password_tokens](#user_password_tokens)
+            - [executions multi-tenant](#executions-multi-tenant)
+            - [Metrics Explorer Tables](#metrics-explorer-tables)
+    - [Migrations](#migrations)
+    - [API Endpoints](#api-endpoints)
+        - [Health](#health)
+        - [Setup First Run](#setup-first-run)
+        - [Authentication](#authentication)
+        - [Data Scope-filtered](#data-scope-filtered)
+        - [Metrics](#metrics)
+            - [Metrics Catalog Behavior](#metrics-catalog-behavior)
+            - [Aggregation Parameter](#aggregation-parameter)
+            - [Metric Type Semantics](#metric-type-semantics)
+        - [Admin requires admin:users permission](#admin-requires-adminusers-permission)
+        - [Debug development only](#debug-development-only)
+    - [RBAC Role-Based Access Control](#rbac-role-based-access-control)
+        - [Default Roles](#default-roles)
+        - [Default Permissions](#default-permissions)
+        - [Role → Permission Mapping](#role-%E2%86%92-permission-mapping)
+        - [Scope Types](#scope-types)
+    - [Authentication Flow](#authentication-flow)
+        - [Token Invalidation](#token-invalidation)
+    - [n8n Data Ingestion](#n8n-data-ingestion)
+        - [PULSE_INGEST_USER](#pulse_ingest_user)
+    - [Building & Running](#building--running)
+        - [Local Development](#local-development)
+        - [Docker](#docker)
+        - [Health Check](#health-check)
+    - [Environment Variables](#environment-variables)
+        - [Required](#required)
+        - [Optional](#optional)
 
 <!-- /TOC -->
 
@@ -55,7 +55,7 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
 
 | Component | Technology | Version |
 |-----------|------------|--------|
-| Runtime | Node.js | 20+ |
+| Runtime | Node.js | 22+ |
 | Framework | Express.js | 5.x |
 | Database | PostgreSQL | 17+ |
 | Auth | JWT + HttpOnly Cookies | - |
@@ -74,10 +74,9 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
 backend/
 ├── index.js                    # Entry point
 ├── package.json                # Dependencies and scripts
-├── Dockerfile                  # Production Docker image
 │
 ├── src/
-│   ├── app.js                  # Express app factory
+│   ├── app.js                  # Express app factory (API + static serving)
 │   ├── server.js               # Server startup
 │   │
 │   ├── config/
@@ -96,6 +95,7 @@ backend/
 │   ├── services/
 │   │   ├── audit.js            # Audit logging
 │   │   ├── authz.js            # RBAC authorization
+│   │   ├── metricsExplorer.js  # Metrics Explorer queries
 │   │   ├── retention.js        # Data retention cleanup
 │   │   └── passwordTokens.js   # Password reset tokens
 │   │
@@ -108,6 +108,8 @@ backend/
 │   │   └── metrics.js          # Instance metrics
 │   │
 │   └── utils/
+│       ├── labels.js           # Label utilities
+│       ├── password.js         # Password strength validation & denylist
 │       └── sql.js              # SQL helpers
 │
 ├── migrations/                 # Database migrations
@@ -161,6 +163,8 @@ email           TEXT NOT NULL UNIQUE
 password_hash   TEXT              -- NULL until password set
 is_active       BOOLEAN DEFAULT true
 token_version   INTEGER DEFAULT 0 -- Incremented to invalidate sessions
+failed_login_attempts INTEGER DEFAULT 0
+locked_until    TIMESTAMPTZ       -- NULL unless locked
 password_set_at TIMESTAMPTZ
 created_at      TIMESTAMPTZ DEFAULT now()
 updated_at      TIMESTAMPTZ DEFAULT now()
@@ -229,7 +233,10 @@ Migrations run automatically on startup via `src/db/autoInit.js`.
 | `retention-and-audit` | Audit log, retention tracking |
 | `multi-tenant-executions` | Composite PK for multi-tenant |
 | `add-metrics-snapshot` | n8n metrics table |
+| `retention-indexes` | Indexes for retention batch DELETEs |
 | `add-metrics-explorer` | Metrics Explorer tables |
+| `add-executions-instance-started-index` | Composite index `(instance_id, started_at DESC)` — see [Deployment → Database Migrations](./deployment.md#database-migrations) |
+| `performance-indexes` | Indexes on `execution_nodes(workflow_id)` and `audit_log(action, created_at)` |
 
 ```bash
 # Manual commands
@@ -267,6 +274,7 @@ npm run migrate:create -- my-migration
 | POST | `/api/auth/reset-password` | Reset with token | No |
 | POST | `/api/auth/set-password` | Set password (invite) | No |
 | POST | `/api/auth/validate-token` | Validate reset/invite token | No |
+| POST | `/api/auth/revoke-all-sessions` | Revoke all sessions for current user | Yes |
 
 ### Data (Scope-filtered)
 
@@ -350,12 +358,14 @@ Aggregation applies **within each time bucket per series** (downsampling), not a
 | GET | `/api/admin/audit-log-actions` | Available audit actions |
 | GET | `/api/admin/retention/status` | Retention status |
 | POST | `/api/admin/retention/run` | Trigger retention |
+| POST | `/api/admin/users/:userId/revoke-sessions` | Revoke all user sessions |
+| POST | `/api/admin/users/:userId/unlock` | Unlock a locked account |
 
 ### Debug (development only)
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/api/debug/ip` | Show client IP | Yes |
+| GET | `/api/debug/ip` | Show client IP | No (dev-only, gated by `DEBUG_IP` flag) |
 
 ---
 
@@ -454,14 +464,15 @@ npm run dev
 ### Docker
 
 ```bash
-docker build -t n8n_pulse_backend:local ./backend
+# Build unified image (from repo root)
+docker build -t n8n_pulse:local .
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 ### Health Check
 
 ```bash
-curl http://localhost:8001/health
+curl http://localhost:8899/health
 # {"ok":true,"db":"connected"}
 ```
 
@@ -484,5 +495,5 @@ See [Configuration Reference](./configuration.md) for complete list.
 |----------|---------|-------------|
 | `PORT` | `8001` | HTTP port |
 | `APP_ENV` | `production` | `production` or `development` |
-| `TRUST_PROXY` | `1` | Proxy hops |
+| `TRUST_PROXY` | `false` | Proxy hops |
 | `LOG_FORMAT` | `json` (prod) / `dev` | Morgan format |

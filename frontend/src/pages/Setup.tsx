@@ -124,7 +124,7 @@ export default function SetupPage() {
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
               {error && (
-                <Alert variant="destructive" className="py-2">
+                <Alert variant="destructive" className="py-2" id="setup-error">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -142,6 +142,8 @@ export default function SetupPage() {
                   autoComplete="email"
                   required
                   className="h-11"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "setup-error" : undefined}
                 />
               </div>
 
@@ -157,6 +159,8 @@ export default function SetupPage() {
                   required
                   minLength={8}
                   className="h-11"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "setup-error" : undefined}
                 />
                 <p className="text-xs text-muted-foreground">
                   At least 8 characters; avoid common passwords like &quot;password123&quot;.

@@ -60,6 +60,7 @@ export function WorkflowSelect({ value, onValueChange }: WorkflowSelectProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-8 border-0 p-0 focus-visible:ring-0"
+            aria-label="Search workflows"
           />
         </div>
         <ScrollArea className="h-[200px]">

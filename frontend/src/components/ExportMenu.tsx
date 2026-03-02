@@ -63,15 +63,10 @@ export function ExportMenu() {
   const canExport =
     state.status === "authenticated" && state.permissions.includes("export:data");
 
-  // Get data from load result
-  const executions = loadResult?.executions ?? [];
-  const nodeRuns = loadResult?.nodeRuns ?? [];
-  const workflows = loadResult?.workflows ?? [];
-
   // Get filtered data
   const filteredExecutions = useMemo(
-    () => filterExecutions(executions, workflows, nodeRuns, filters),
-    [executions, workflows, nodeRuns, filters]
+    () => filterExecutions(loadResult?.executions ?? [], loadResult?.workflows ?? [], loadResult?.nodeRuns ?? [], filters),
+    [loadResult, filters]
   );
 
   const filteredNodeRuns = useMemo(() => {
@@ -79,10 +74,10 @@ export function ExportMenu() {
       filteredExecutions.map((e) => `${e.instanceId}::${e.executionId}`)
     );
 
-    return nodeRuns.filter((node: ExecutionNode) =>
+    return (loadResult?.nodeRuns ?? []).filter((node: ExecutionNode) =>
       executionIds.has(`${node.instanceId}::${node.executionId}`)
     );
-  }, [filteredExecutions, nodeRuns]);
+  }, [filteredExecutions, loadResult]);
 
   // ===== Export Functions =====
 

@@ -19,7 +19,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    // If the response is HTML (e.g. nginx 502), show a friendly message
+    // If the response is HTML (e.g. 502 from a reverse proxy), show a friendly message
     if (txt.includes("<html") || txt.includes("<!DOCTYPE")) {
       throw new Error("Server is starting up. Please wait a moment and try again.");
     }
@@ -49,6 +49,10 @@ export function login(email: string, password: string) {
 
 export function logout() {
   return fetchJson<{ ok: boolean }>("/api/auth/logout", { method: "POST" });
+}
+
+export function revokeAllSessions() {
+  return fetchJson<{ ok: boolean; message: string }>("/api/auth/revoke-all-sessions", { method: "POST" });
 }
 
 export function me() {

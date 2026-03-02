@@ -2,9 +2,10 @@ import { useMemo, useEffect, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { GlobalFilterBar } from "@/components/GlobalFilterBar";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/state";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Settings2, BarChart3, RotateCcw } from "lucide-react";
+import { SkeletonCard, SkeletonChart } from "@/components/skeleton";
+import { Settings2, BarChart3, RotateCcw, RefreshCw } from "lucide-react";
 import { useData } from "@/data/DataContext";
 import { useFilters } from "@/hooks/useFilters";
 import { filterExecutions } from "@/data/selectors/executionSelectors";
@@ -18,7 +19,7 @@ import { MetricsProvider } from "@/data/MetricsContext";
 import * as metricsApi from "@/data/metricsApi";
 
 export default function DashboardPage() {
-  const { loadResult, isLoading } = useData();
+  const { loadResult, isLoading, error, reload } = useData();
   const { filters } = useFilters();
   const { state } = useAuth();
 
@@ -134,6 +135,19 @@ export default function DashboardPage() {
 
   const headerActions = (
     <>
+      {!isLoading && !isCustomizing && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={reload}
+          className="text-muted-foreground"
+          aria-label="Refresh dashboard data"
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      )}
+
       {isCustomizing && (
         <Button
           variant="ghost"
@@ -242,18 +256,30 @@ export default function DashboardPage() {
       )}
 
       {isLoading || metricsConfigLoading ? (
-        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3" data-testid="dashboard-loading">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className={i === 0 ? "lg:col-span-3" : "lg:col-span-1"}>
-              <Skeleton className={i === 0 ? "h-24 w-full" : "h-64 w-full"} />
+        <div className="space-y-6" data-testid="dashboard-loading">
+          <SkeletonCard count={4} />
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <SkeletonChart height="h-64" />
             </div>
-          ))}
+            <div className="lg:col-span-1">
+              <SkeletonChart height="h-64" />
+            </div>
+          </div>
         </div>
+      ) : error ? (
+        <ErrorState
+          message="Failed to load dashboard data"
+          details={error}
+          onRetry={reload}
+        />
       ) : !hasData && !hasMetricsWidgets ? (
         <EmptyState
           icon={<BarChart3 className="h-10 w-10" />}
           title="No data yet"
-          description="Execution data will appear here once n8n workflows run and data is ingested."
+          description="Execution data will appear here once n8n workflows run and data is ingested. Check the Getting Started guide for setup instructions."
+          actionLabel="Getting Started"
+          actionHref="/help"
         />
       ) : (
         <WidgetDataProvider

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { GlobalFilterBar } from "@/components/GlobalFilterBar";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/state";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonTable } from "@/components/skeleton";
 import { List, ChevronLeft, ChevronRight, HelpCircle } from "lucide-react";
 import { useData } from "@/data/DataContext";
 import { useFilters } from "@/hooks/useFilters";
@@ -69,7 +70,7 @@ function applyQuickFilters(
 
 export default function ExecutionsPage() {
   const navigate = useNavigate();
-  const { loadResult, isLoading } = useData();
+  const { loadResult, isLoading, error, reload } = useData();
   const { filters } = useFilters();
 
   // Quick filters state
@@ -197,11 +198,13 @@ export default function ExecutionsPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
+        <SkeletonTable rows={8} columns={7} />
+      ) : error ? (
+        <ErrorState
+          message="Failed to load executions"
+          details={error}
+          onRetry={reload}
+        />
       ) : executions.length === 0 ? (
         <EmptyState
           icon={<List className="h-10 w-10" />}
@@ -209,30 +212,34 @@ export default function ExecutionsPage() {
           description={
             onlyErrors || slowThresholdMs
               ? "No executions match your quick filters. Try adjusting them."
-              : "Adjust your filters or add CSV data to public/data/."
+              : "Workflow executions will appear here once n8n workflows run and data is collected."
           }
+          actionLabel={!(onlyErrors || slowThresholdMs) ? "Getting Started" : undefined}
+          actionHref={!(onlyErrors || slowThresholdMs) ? "/help" : undefined}
         />
       ) : (
         <>
-          <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="rounded-lg border bg-card overflow-hidden overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[90px]">Status</TableHead>
                   <TableHead className="w-[130px]">Execution ID</TableHead>
                   <TableHead>Workflow</TableHead>
-                  <TableHead className="w-[140px]">Started</TableHead>
+                  <TableHead className="w-[140px] hidden md:table-cell">Started</TableHead>
                   <TableHead className="w-[100px]">Duration</TableHead>
-                  <TableHead className="w-[80px] text-center">Nodes</TableHead>
-                  <TableHead className="w-[180px]">Last Node</TableHead>
+                  <TableHead className="w-[80px] text-center hidden lg:table-cell">Nodes</TableHead>
+                  <TableHead className="w-[180px] hidden lg:table-cell">Last Node</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedExecutions.map((exec) => (
                   <TableRow
                     key={exec.executionId}
-                    className="cursor-pointer hover:bg-muted/50"
+                    className="cursor-pointer hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                     onClick={() => handleRowClick(exec)}
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleRowClick(exec); } }}
                   >
                     <TableCell>
                       <StatusBadge status={exec.status} />
@@ -247,16 +254,16 @@ export default function ExecutionsPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-sm text-muted-foreground hidden md:table-cell">
                       {formatDate(exec.startedAt)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDuration(exec.durationMs)}
                     </TableCell>
-                    <TableCell className="text-center text-sm text-muted-foreground">
+                    <TableCell className="text-center text-sm text-muted-foreground hidden lg:table-cell">
                       {exec.nodesCount ?? "—"}
                     </TableCell>
-                    <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">
+                    <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground hidden lg:table-cell">
                       {exec.lastNodeExecuted ?? "—"}
                     </TableCell>
                   </TableRow>

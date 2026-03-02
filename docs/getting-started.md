@@ -27,7 +27,7 @@ git clone https://github.com/Mohammedaljer/n8nPulse.git
 cd n8nPulse
 
 # Start all services (dev mode)
-docker compose up -d --build
+docker compose -f docker-compose.local.yml up -d --build
 
 # Open dashboard
 open http://localhost:8899
@@ -38,7 +38,7 @@ open http://localhost:8899
 On first run, create the initial admin:
 
 1. Navigate to `http://localhost:8899/setup`
-2. Enter email and password (min 8 characters)
+2. Enter email and password (min 12 characters, must not be a common password)
 3. Click "Create Admin"
 4. Login with your credentials
 

@@ -11,12 +11,21 @@ function getExpectedOrigin() {
 }
 const expectedOrigin = getExpectedOrigin();
 
+/**
+ * CSRF Origin / Referer check.
+ * Protects ALL mutating requests (POST, PUT, PATCH, DELETE) on /api/ paths.
+ * Read-only GET/HEAD/OPTIONS requests are exempt.
+ * If APP_URL is not configured, the check is skipped (dev convenience).
+ */
 function csrfOriginRefererCheck(req, res, next) {
   const method = req.method.toUpperCase();
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return next();
+
+  // Only protect /api/ paths (not static assets or SPA fallback)
   const path = req.path || '';
-  const isProtected = path.startsWith('/api/admin/') || path.startsWith('/api/setup/');
-  if (!isProtected) return next();
+  if (!path.startsWith('/api/')) return next();
+
+  // If APP_URL is not set we cannot validate origin — skip (dev only)
   if (!expectedOrigin) return next();
 
   const origin = req.get('origin');

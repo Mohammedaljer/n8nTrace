@@ -17,14 +17,21 @@ services:
       start_period: 10s
     security_opt:
       - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
     networks:
       internal:
         aliases: [postgres, n8n_pulse_postgres]
 
   backend:
-    image: mohammedaljer/n8n_pulse_backend:v1.4.1
-    container_name: n8n_pulse_backend
+    image: mohammedaljer/n8n_pulse:v2.0.0
+    container_name: n8n_pulse_app
     restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8899}:8001"
     environment:
       APP_ENV: ${APP_ENV:-production}
       DATABASE_URL: postgres://n8n_pulse:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/n8n_pulse
@@ -32,10 +39,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required - minimum 32 characters}
       APP_URL: ${APP_URL:-http://localhost:8899}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8899}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
       COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
-      TRUST_PROXY: ${TRUST_PROXY:-1}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
       LOG_FORMAT: json
       RETENTION_ENABLED: ${RETENTION_ENABLED:-true}
       RETENTION_DAYS: ${RETENTION_DAYS:-90}
@@ -50,36 +57,24 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:8001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:8001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 10s
       retries: 5
       start_period: 30s
     security_opt:
       - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64M
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
     networks:
       internal:
-        aliases: [backend, n8n_pulse_backend]
-
-  frontend:
-    image: mohammedaljer/n8n_pulse_frontend:v1.4.1
-    container_name: n8n_pulse_frontend
-    restart: unless-stopped
-    ports:
-      - "${HTTP_PORT:-8899}:80"
-    depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "nginx -t >/dev/null 2>&1 || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      internal: {}
+        aliases: [backend, n8n_pulse_app]
 
 networks:
   internal:

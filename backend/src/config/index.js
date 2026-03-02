@@ -14,7 +14,7 @@ const APP_URL = process.env.APP_URL || process.env.CORS_ORIGIN || (IS_DEV ? 'htt
 // Auth / cookies
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '30m';
-const TRUST_PROXY = process.env.TRUST_PROXY || '1'; // default 1 when behind single reverse proxy (e.g. nginx in stack)
+const TRUST_PROXY = process.env.TRUST_PROXY || 'false'; // default false for direct access; set to '1' when behind a reverse proxy
 const COOKIE_SECURE = (process.env.COOKIE_SECURE || (IS_DEV ? 'false' : 'true')).toLowerCase() === 'true';
 const COOKIE_SAMESITE = process.env.COOKIE_SAMESITE || 'lax';
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
@@ -40,6 +40,17 @@ const METRICS_MAX_DATAPOINTS = parseInt(process.env.METRICS_MAX_DATAPOINTS || '1
 const METRICS_MAX_BREAKDOWN_ROWS = parseInt(process.env.METRICS_MAX_BREAKDOWN_ROWS || '50', 10);
 const METRICS_MAX_CATALOG_SIZE = parseInt(process.env.METRICS_MAX_CATALOG_SIZE || '200', 10);
 const METRICS_MAX_LABEL_VALUES = parseInt(process.env.METRICS_MAX_LABEL_VALUES || '100', 10);
+
+// Password policy
+const PASSWORD_MIN_LENGTH = parseInt(process.env.PASSWORD_MIN_LENGTH || '12', 10);
+
+// Account lockout
+const ACCOUNT_LOCKOUT_THRESHOLD = parseInt(process.env.ACCOUNT_LOCKOUT_THRESHOLD || '10', 10);
+const ACCOUNT_LOCKOUT_DURATION_MINUTES = parseInt(process.env.ACCOUNT_LOCKOUT_DURATION_MINUTES || '15', 10);
+
+// Content Security Policy
+const CSP_REPORT_ONLY = (process.env.CSP_REPORT_ONLY || 'false').toLowerCase() === 'true';
+const CSP_REPORT_URI = process.env.CSP_REPORT_URI || '';
 
 // Audit log IP: none | raw | hashed. If hashed, AUDIT_LOG_IP_SALT is required.
 const AUDIT_LOG_IP_MODE = (process.env.AUDIT_LOG_IP_MODE || 'raw').toLowerCase();
@@ -81,6 +92,14 @@ module.exports = {
   METRICS_MAX_BREAKDOWN_ROWS,
   METRICS_MAX_CATALOG_SIZE,
   METRICS_MAX_LABEL_VALUES,
+
+  PASSWORD_MIN_LENGTH,
+
+  ACCOUNT_LOCKOUT_THRESHOLD,
+  ACCOUNT_LOCKOUT_DURATION_MINUTES,
+
+  CSP_REPORT_ONLY,
+  CSP_REPORT_URI,
 
   AUDIT_LOG_IP_MODE,
   AUDIT_LOG_IP_SALT,

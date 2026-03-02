@@ -21,6 +21,7 @@ import { FilterChips } from "@/components/FilterChips";
 import { InstanceSelect } from "@/components/InstanceSelect";
 import { DateRangePresets } from "@/components/DateRangePresets";
 import { ExportMenu } from "@/components/ExportMenu";
+import { Badge } from "@/components/ui/badge";
 import type { ExecutionStatus } from "@/types/execution";
 
 const statusOptions: { value: ExecutionStatus | "all"; label: string }[] = [
@@ -50,10 +51,21 @@ export function GlobalFilterBar() {
     filters,
     setFilter,
     availableInstances,
+    hasActiveFilters,
+    activeFilterCount,
     datePreset,
     setDatePreset,
   } = useFilters();
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Count advanced-only filters (those hidden in the collapsible section)
+  const advancedFilterCount = [
+    filters.mode, filters.finished,
+    filters.durationMsMin, filters.durationMsMax,
+    filters.nodeNameContains, filters.nodeTypeContains,
+    filters.itemsOutMin, filters.itemsOutMax,
+    filters.executionTimeMsMin, filters.executionTimeMsMax,
+  ].filter((v) => v !== undefined && v !== null && v !== "").length;
 
   return (
     <div className="space-y-3">
@@ -130,6 +142,11 @@ export function GlobalFilterBar() {
                 >
                   <SlidersHorizontal className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                   Advanced
+                  {!showAdvanced && advancedFilterCount > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 h-5 min-w-[20px] px-1.5 text-xs font-semibold">
+                      {advancedFilterCount}
+                    </Badge>
+                  )}
                   {showAdvanced ? (
                     <ChevronUp className="ml-1 h-3 w-3" aria-hidden="true" />
                   ) : (

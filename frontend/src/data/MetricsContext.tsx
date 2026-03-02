@@ -149,6 +149,7 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
       setTimeseries([]);
       setWorkflowsStatus(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh callbacks depend on selectedInstanceId which is already listed
   }, [selectedInstanceId, config?.enabled, config?.hasFullPermission]);
   
   const value = useMemo(() => ({

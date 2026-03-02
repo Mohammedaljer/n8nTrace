@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { GlobalFilterBar } from "@/components/GlobalFilterBar";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/state";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { SkeletonTable } from "@/components/skeleton";
 import {
   Select,
   SelectContent,
@@ -87,7 +88,7 @@ const columns: ColumnDef[] = [
     label: "Active",
     tooltip: "Whether the workflow is currently active/enabled in n8n.",
     align: "center",
-    className: "w-[80px]",
+    className: "w-[80px] hidden sm:table-cell",
   },
   {
     key: "runs",
@@ -108,20 +109,20 @@ const columns: ColumnDef[] = [
     label: "Failure %",
     tooltip: "Percentage of runs that failed. Lower is better.",
     align: "right",
-    className: "w-[90px]",
+    className: "w-[90px] hidden md:table-cell",
   },
   {
     key: "p95DurationMs",
     label: "P95 Duration",
     tooltip: "95% of runs completed faster than this time. Helps identify slow workflows.",
     align: "right",
-    className: "w-[110px]",
+    className: "w-[110px] hidden md:table-cell",
   },
   {
     key: "lastRunAt",
     label: "Last Run",
     tooltip: "When this workflow was most recently executed.",
-    className: "w-[140px]",
+    className: "w-[140px] hidden lg:table-cell",
   },
   {
     key: "lastStatus",
@@ -191,7 +192,7 @@ function SortableHeader({
 
 export default function WorkflowsPage() {
   const navigate = useNavigate();
-  const { loadResult, isLoading } = useData();
+  const { loadResult, isLoading, error, reload } = useData();
   const { filters } = useFilters();
 
   const [search, setSearch] = useState("");
@@ -288,6 +289,7 @@ export default function WorkflowsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
+            aria-label="Search workflows"
           />
         </div>
 
@@ -310,11 +312,13 @@ export default function WorkflowsPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
+        <SkeletonTable rows={6} columns={8} />
+      ) : error ? (
+        <ErrorState
+          message="Failed to load workflow data"
+          details={error}
+          onRetry={reload}
+        />
       ) : sortedStats.length === 0 ? (
         <EmptyState
           icon={<GitBranch className="h-10 w-10" />}
@@ -322,11 +326,13 @@ export default function WorkflowsPage() {
           description={
             search || activeFilter !== "all"
               ? "No workflows match your filters. Try adjusting your search or filter criteria."
-              : "Workflow analytics will appear here once data is loaded."
+              : "Workflow analytics will appear here once n8n workflows run and data is collected."
           }
+          actionLabel={!(search || activeFilter !== "all") ? "Getting Started" : undefined}
+          actionHref={!(search || activeFilter !== "all") ? "/help" : undefined}
         />
       ) : (
-        <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+        <div className="rounded-xl border bg-card shadow-sm overflow-hidden overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30">
@@ -345,8 +351,10 @@ export default function WorkflowsPage() {
               {sortedStats.map((stat) => (
                 <TableRow
                   key={stat.workflowId}
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="cursor-pointer hover:bg-muted/50 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                   onClick={() => handleRowClick(stat)}
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleRowClick(stat); } }}
                 >
                   <TableCell>
                     <div>
@@ -360,7 +368,7 @@ export default function WorkflowsPage() {
                   </TableCell>
 
                   {/* Active status badge */}
-                  <TableCell className="text-center">
+                  <TableCell className="text-center hidden sm:table-cell">
                     {stat.active ? (
                       <Badge variant="default" className="bg-success/10 text-success border-success/20 hover:bg-success/20">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -384,7 +392,7 @@ export default function WorkflowsPage() {
                     </span>
                   </TableCell>
 
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums hidden md:table-cell">
                     <span
                       className={
                         stat.failureRate > 10
@@ -398,11 +406,11 @@ export default function WorkflowsPage() {
                     </span>
                   </TableCell>
 
-                  <TableCell className="text-right text-muted-foreground tabular-nums">
+                  <TableCell className="text-right text-muted-foreground tabular-nums hidden md:table-cell">
                     {formatDuration(stat.p95DurationMs)}
                   </TableCell>
 
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-muted-foreground hidden lg:table-cell">
                     {formatDate(stat.lastRunAt)}
                   </TableCell>
 

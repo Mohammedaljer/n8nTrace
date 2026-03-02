@@ -29,6 +29,7 @@ router.get('/api/admin/users', requireAuth, requirePermission('admin:users'), as
   const offset = Math.max(Number(req.query.offset || 0), 0);
   const { rows } = await pool.query(
     `SELECT u.id, u.email, u.is_active, u.created_at, u.password_set_at,
+            u.failed_login_attempts, u.locked_until,
             COALESCE(json_agg(json_build_object('id', g.id, 'name', g.name)) FILTER (WHERE g.id IS NOT NULL), '[]'::json) AS groups
      FROM app_users u LEFT JOIN user_groups ug ON ug.user_id = u.id LEFT JOIN groups g ON g.id = ug.group_id
      GROUP BY u.id ORDER BY u.created_at DESC LIMIT $1 OFFSET $2`, [limit, offset]
@@ -297,7 +298,8 @@ router.post('/api/admin/retention/run', requireAuth, requirePermission('admin:us
     const result = await runRetentionCleanup();
     res.json(result);
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    console.error('Retention run error:', err);
+    res.status(500).json({ ok: false, error: 'Retention run failed' });
   }
 });
 
@@ -310,6 +312,53 @@ router.get('/api/admin/retention/status', requireAuth, requirePermission('admin:
     isRunning: status.isRunning,
     lastResult: status.lastResult,
   });
+});
+
+// ============================================================================
+// ADMIN: Revoke all sessions for a specific user
+// Increments target user's token_version, invalidating all their JWTs.
+// ============================================================================
+router.post('/api/admin/users/:userId/revoke-sessions', requireAuth, requirePermission('admin:users'), async (req, res) => {
+  const { rows, rowCount } = await pool.query(
+    `UPDATE app_users SET token_version = COALESCE(token_version, 0) + 1, updated_at = now() WHERE id = $1 RETURNING id`,
+    [req.params.userId]
+  );
+  if (!rowCount) return res.status(404).json({ error: 'User not found' });
+
+  await logAudit('admin_revoked_sessions', {
+    ...getAuditContext(req),
+    actorUserId: req.user.sub,
+    targetType: 'user',
+    targetId: req.params.userId,
+  });
+  res.json({ ok: true, message: 'All sessions revoked for user' });
+});
+
+// ============================================================================
+// ADMIN: Unlock a locked-out user account
+// Resets failed_login_attempts and locked_until.
+// ============================================================================
+router.post('/api/admin/users/:userId/unlock', requireAuth, requirePermission('admin:users'), async (req, res) => {
+  const { rows, rowCount } = await pool.query(
+    `UPDATE app_users
+        SET failed_login_attempts = 0,
+            locked_until          = NULL,
+            last_failed_login_at  = NULL,
+            updated_at            = now()
+      WHERE id = $1
+  RETURNING id, email`,
+    [req.params.userId]
+  );
+  if (!rowCount) return res.status(404).json({ error: 'User not found' });
+
+  await logAudit('admin_unlocked_account', {
+    ...getAuditContext(req),
+    actorUserId: req.user.sub,
+    targetType: 'user',
+    targetId: req.params.userId,
+    metadata: { unlockedEmail: rows[0].email },
+  });
+  res.json({ ok: true, message: `Account ${rows[0].email} unlocked successfully` });
 });
 
   return router;
