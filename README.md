@@ -26,9 +26,20 @@
   </a>
 </p>
 
+---
+
+## 🎥 Live Dashboard Demo
 <p align="center">
-  <img src="./docs/images/n8n_pulse.gif" alt="n8n Pulse Demo" width="900">
+  <video src="./docs/images/n8n_pulse.mp4" 
+         width="900" 
+         autoplay 
+         loop 
+         muted 
+         playsinline>
+  </video>
 </p>
+
+---
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &nbsp;·&nbsp;

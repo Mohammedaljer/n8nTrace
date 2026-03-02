@@ -126,11 +126,12 @@ docker-compose*.yaml
 !docs/
 !docs/**/*.md
 !/backend/README.md
-
+!/frontend/README.md
 # Keep workflow docs
 !Workflows/
 !Workflows/README.md
-
+!CHANGELOG.md
+!CONTRIBUTING.md
 # Personal notes (not for git)
 Build.md
 
