@@ -1,16 +1,16 @@
 services:
   postgres:
     image: postgres:17.2-alpine
-    container_name: n8n_pulse_postgres
+    container_name: n8n_trace_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: n8n_pulse
-      POSTGRES_USER: n8n_pulse
+      POSTGRES_DB: n8n_trace
+      POSTGRES_USER: n8n_trace
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U n8n_pulse -d n8n_pulse"]
+      test: ["CMD-SHELL", "pg_isready -U n8n_trace -d n8n_trace"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -24,17 +24,17 @@ services:
           cpus: "1.0"
     networks:
       internal:
-        aliases: [postgres, n8n_pulse_postgres]
+        aliases: [postgres, n8n_trace_postgres]
 
   backend:
-    image: mohammedaljer/n8n_pulse:v2.0.0
-    container_name: n8n_pulse_app
+    image: mohammedaljer/n8n-trace:v2.0.0
+    container_name: n8n_trace_app
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-8899}:8001"
     environment:
       APP_ENV: ${APP_ENV:-production}
-      DATABASE_URL: postgres://n8n_pulse:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/n8n_pulse
+      DATABASE_URL: postgres://n8n_trace:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/n8n_trace
       PORT: "8001"
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required - minimum 32 characters}
       APP_URL: ${APP_URL:-http://localhost:8899}
@@ -51,8 +51,8 @@ services:
       METRICS_ENABLED: ${METRICS_ENABLED:-true}
       METRICS_MAX_TIME_RANGE_DAYS: ${METRICS_MAX_TIME_RANGE_DAYS:-30}
       METRICS_MAX_DATAPOINTS: ${METRICS_MAX_DATAPOINTS:-1000}
-      PULSE_INGEST_USER: ${PULSE_INGEST_USER:-}
-      PULSE_INGEST_PASSWORD: ${PULSE_INGEST_PASSWORD:-}
+      TRACE_INGEST_USER: ${TRACE_INGEST_USER:-}
+      TRACE_INGEST_PASSWORD: ${TRACE_INGEST_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,7 +74,7 @@ services:
           cpus: "1.0"
     networks:
       internal:
-        aliases: [backend, n8n_pulse_app]
+        aliases: [backend, n8n_trace_app]
 
 networks:
   internal:

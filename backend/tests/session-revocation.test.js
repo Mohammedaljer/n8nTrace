@@ -35,7 +35,7 @@ describe('Session revocation — /api/auth/revoke-all-sessions', () => {
     const token = signTestToken();
     const res = await request(app)
       .post('/api/auth/revoke-all-sessions')
-      .set('Cookie', `n8n_pulse_token=${token}`);
+      .set('Cookie', `n8n_trace_token=${token}`);
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
@@ -57,14 +57,14 @@ describe('Session revocation — /api/auth/revoke-all-sessions', () => {
     const token = signTestToken();
     const res = await request(app)
       .post('/api/auth/revoke-all-sessions')
-      .set('Cookie', `n8n_pulse_token=${token}`);
+      .set('Cookie', `n8n_trace_token=${token}`);
 
     expect(res.status).toBe(200);
     // Check Set-Cookie header clears the token
     const cookies = res.headers['set-cookie'];
     expect(cookies).toBeDefined();
     const clearCookie = Array.isArray(cookies)
-      ? cookies.find((c) => c.includes('n8n_pulse_token='))
+      ? cookies.find((c) => c.includes('n8n_trace_token='))
       : cookies;
     expect(clearCookie).toBeDefined();
   });
@@ -77,7 +77,7 @@ describe('Session revocation — /api/auth/revoke-all-sessions', () => {
     const token = signTestToken();
     await request(app)
       .post('/api/auth/revoke-all-sessions')
-      .set('Cookie', `n8n_pulse_token=${token}`);
+      .set('Cookie', `n8n_trace_token=${token}`);
 
     const auditCall = deps.logAudit.mock.calls.find((c) => c[0] === 'all_sessions_revoked');
     expect(auditCall).toBeDefined();

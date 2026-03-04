@@ -1,5 +1,5 @@
 # =============================================================================
-# n8n Pulse — Unified Docker Image
+# n8n-trace — Unified Docker Image
 # Builds the React frontend and serves it from the Express backend.
 # Single container, single port, no NGINX required.
 # =============================================================================

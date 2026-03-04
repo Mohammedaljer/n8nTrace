@@ -1,6 +1,6 @@
-# n8n Pulse — Backend
+# n8n-trace — Backend
 
-Express.js 5 REST API that powers n8n Pulse. Handles authentication, authorization, data queries, metrics, audit logging, and database lifecycle.
+Express.js 5 REST API that powers n8n-trace. Handles authentication, authorization, data queries, metrics, audit logging, and database lifecycle.
 
 > [!NOTE]
 > The backend is not intended to run standalone. It is built and shipped as part of the [unified Docker image](../docs/deployment.md) alongside the React SPA.
@@ -57,7 +57,7 @@ npm test
 The backend is built as part of the unified image from the repo root:
 
 ```bash
-docker build -t n8n_pulse:local .
+docker build -t n8n_trace:local .
 ```
 
 ## Health Check

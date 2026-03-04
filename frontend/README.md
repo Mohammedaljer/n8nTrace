@@ -1,6 +1,6 @@
-# n8n Pulse — Frontend
+# n8n-trace — Frontend
 
-React SPA that provides the dashboard, analytics views, RBAC-aware widgets, and admin interface for n8n Pulse.
+React SPA that provides the dashboard, analytics views, RBAC-aware widgets, and admin interface for n8n-trace.
 
 > [!NOTE]
 > The frontend is not deployed independently. Vite builds the SPA into static files that are served by the backend inside the [unified Docker image](../docs/deployment.md).

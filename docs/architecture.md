@@ -1,21 +1,26 @@
 # Architecture
 
-How n8n Pulse is built, how requests flow, and how to configure proxy trust for different deployment topologies.
+How n8n-trace is built, how requests flow, and how to configure proxy trust for different deployment topologies.
 
 <!-- TOC -->
 
-- [Component Overview](#component-overview)
-- [Single-Container Architecture](#single-container-architecture)
-- [Request Flow](#request-flow)
-- [Data Ingestion Model](#data-ingestion-model)
-- [Proxy Trust Model](#proxy-trust-model)
-  - [Direct Access (Default)](#direct-access-default)
-  - [Behind a Reverse Proxy](#behind-a-reverse-proxy)
-  - [Behind a CDN + Proxy](#behind-a-cdn--proxy)
-  - [Do Not Guess TRUST_PROXY](#do-not-guess-trust_proxy)
-- [Security Layers](#security-layers)
-- [Health and Readiness](#health-and-readiness)
-- [Database Architecture](#database-architecture)
+- [Architecture](#architecture)
+  - [Component Overview](#component-overview)
+  - [Single-Container Architecture](#single-container-architecture)
+  - [Request Flow](#request-flow)
+    - [Direct access (default Docker Compose)](#direct-access-default-docker-compose)
+    - [Behind a reverse proxy (Traefik, Caddy, NGINX, LB)](#behind-a-reverse-proxy-traefik-caddy-nginx-lb)
+  - [Data Ingestion Model](#data-ingestion-model)
+  - [Proxy Trust Model](#proxy-trust-model)
+    - [Direct Access (Default)](#direct-access-default)
+    - [Behind a Reverse Proxy](#behind-a-reverse-proxy)
+    - [Behind a CDN + Proxy](#behind-a-cdn--proxy)
+    - [Do Not Guess TRUST\_PROXY](#do-not-guess-trust_proxy)
+  - [Security Layers](#security-layers)
+  - [Health and Readiness](#health-and-readiness)
+  - [Database Architecture](#database-architecture)
+    - [Two database users](#two-database-users)
+    - [Key indexes](#key-indexes)
 
 <!-- /TOC -->
 
@@ -28,7 +33,7 @@ How n8n Pulse is built, how requests flow, and how to configure proxy trust for 
 | **Application** | Express.js 5 (API) + React 18 (SPA) | `gcr.io/distroless/nodejs22-debian12:nonroot` |
 | **Database** | PostgreSQL 17 | `postgres:17.2-alpine` |
 
-n8n Pulse runs as **two containers**: the application and PostgreSQL. The Express backend serves both the REST API and the React frontend as static files. No NGINX or separate proxy is needed.
+n8n-trace runs as **two containers**: the application and PostgreSQL. The Express backend serves both the REST API and the React frontend as static files. No NGINX or separate proxy is needed.
 
 ---
 
@@ -82,16 +87,16 @@ Set `TRUST_PROXY=1` so Express reads the real client IP from your proxy's `X-For
 
 ## Data Ingestion Model
 
-n8n Pulse uses **push-based ingestion**. It does not poll n8n instances.
+n8n-trace uses **push-based ingestion**. It does not poll n8n instances.
 
 1. An **n8n workflow** runs on a schedule inside your n8n instance.
 2. That workflow collects execution data from the n8n internal API.
-3. It writes directly to PostgreSQL using a **restricted database user** (`pulse_ingest`).
+3. It writes directly to PostgreSQL using a **restricted database user** (`trace_ingest`).
 
 ```
 ┌─────────────┐                    ┌─────────────┐
 │     n8n     │ ── INSERT/UPSERT ─▶│  PostgreSQL  │
-│  (workflow) │    via pulse_ingest │             │
+│  (workflow) │    via trace_ingest │             │
 └─────────────┘                    └──────┬──────┘
                                           │ SELECT
                                    ┌──────┴──────┐
@@ -100,7 +105,7 @@ n8n Pulse uses **push-based ingestion**. It does not poll n8n instances.
                                    └─────────────┘
 ```
 
-The `pulse_ingest` user has least-privilege access:
+The `trace_ingest` user has least-privilege access:
 - **Allowed**: `SELECT`, `INSERT`, `UPDATE` on `executions`, `execution_nodes`, `workflows_index`, `n8n_metrics_snapshot`, `metrics_series`, `metrics_samples`
 - **Denied**: `DELETE` on any table; any access to `app_users`, `audit_log`, RBAC tables
 
@@ -212,8 +217,8 @@ PostgreSQL 17 with auto-migrations on startup via `node-pg-migrate`.
 
 | User | Purpose | Privileges |
 |------|---------|------------|
-| `n8n_pulse` | Application user | Full owner of all tables |
-| `pulse_ingest` | n8n workflow ingestion | SELECT/INSERT/UPDATE on 6 ingestion tables only |
+| `n8n_trace` | Application user | Full owner of all tables |
+| `trace_ingest` | n8n workflow ingestion | SELECT/INSERT/UPDATE on 6 ingestion tables only |
 
 ### Key indexes
 

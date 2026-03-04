@@ -1,6 +1,6 @@
 # Backend Architecture
 
-n8n Pulse backend is an Express.js REST API providing authentication, authorization, and data access for workflow execution / metrics analytics.
+n8n-trace backend is an Express.js REST API providing authentication, authorization, and data access for workflow execution / metrics analytics.
 
 ## Table of Contents
 
@@ -38,7 +38,7 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
     - [Authentication Flow](#authentication-flow)
         - [Token Invalidation](#token-invalidation)
     - [n8n Data Ingestion](#n8n-data-ingestion)
-        - [PULSE_INGEST_USER](#pulse_ingest_user)
+        - [TRACE_INGEST_USER](#trace_ingest_user)
     - [Building & Running](#building--running)
         - [Local Development](#local-development)
         - [Docker](#docker)
@@ -418,7 +418,7 @@ Aggregation applies **within each time bucket per series** (downsampling), not a
 1. User POSTs `/api/auth/login` with `{email, password}`
 2. Backend verifies against `app_users.password_hash`
 3. JWT generated with `{userId, tokenVersion}`
-4. JWT stored in HttpOnly cookie `n8n_pulse_token`
+4. JWT stored in HttpOnly cookie `n8n_trace_token`
 5. Subsequent requests validated via cookie
 6. If `token_version` changed, JWT rejected
 
@@ -430,18 +430,18 @@ Password change increments `token_version`, invalidating all sessions.
 
 ## n8n Data Ingestion
 
-### PULSE_INGEST_USER
+### TRACE_INGEST_USER
 
 Restricted PostgreSQL user for n8n to write data:
 
 ```sql
 -- Allowed tables:
-GRANT SELECT, INSERT, UPDATE ON workflows_index TO pulse_ingest;
-GRANT SELECT, INSERT, UPDATE ON executions TO pulse_ingest;
-GRANT SELECT, INSERT, UPDATE ON execution_nodes TO pulse_ingest;
-GRANT SELECT, INSERT, UPDATE ON n8n_metrics_snapshot TO pulse_ingest;
-GRANT SELECT, INSERT, UPDATE ON metrics_series TO pulse_ingest;
-GRANT SELECT, INSERT, UPDATE ON metrics_samples TO pulse_ingest;
+GRANT SELECT, INSERT, UPDATE ON workflows_index TO trace_ingest;
+GRANT SELECT, INSERT, UPDATE ON executions TO trace_ingest;
+GRANT SELECT, INSERT, UPDATE ON execution_nodes TO trace_ingest;
+GRANT SELECT, INSERT, UPDATE ON n8n_metrics_snapshot TO trace_ingest;
+GRANT SELECT, INSERT, UPDATE ON metrics_series TO trace_ingest;
+GRANT SELECT, INSERT, UPDATE ON metrics_samples TO trace_ingest;
 
 -- Cannot access: app_users, audit_log, RBAC tables
 -- Cannot DELETE any data
@@ -456,7 +456,7 @@ GRANT SELECT, INSERT, UPDATE ON metrics_samples TO pulse_ingest;
 ```bash
 cd backend
 npm install
-export DATABASE_URL="postgres://user:pass@localhost:5432/n8n_pulse"
+export DATABASE_URL="postgres://user:pass@localhost:5432/n8n_trace"
 export JWT_SECRET="your-32-char-secret"
 npm run dev
 ```
@@ -465,7 +465,7 @@ npm run dev
 
 ```bash
 # Build unified image (from repo root)
-docker build -t n8n_pulse:local .
+docker build -t n8n_trace:local .
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 

@@ -62,8 +62,8 @@ DATABASE_URL=postgres://user:pass@host:5432/dbname
 **Causes**: Database not connected, migrations running.
 
 ```bash
-docker compose logs n8n_pulse_app
-docker exec n8n_pulse_app /nodejs/bin/node -e "fetch('http://localhost:8001/health').then(r=>r.json()).then(console.log)"
+docker compose logs n8n_trace_app
+docker exec n8n_trace_app /nodejs/bin/node -e "fetch('http://localhost:8001/health').then(r=>r.json()).then(console.log)"
 ```
 
 ## Cannot Access /setup
@@ -85,7 +85,7 @@ docker exec n8n_pulse_app /nodejs/bin/node -e "fetch('http://localhost:8001/heal
 
 ```bash
 # Check user exists
-docker exec n8n_pulse_postgres psql -U n8n_pulse \
+docker exec n8n_trace_postgres psql -U n8n_trace \
   -c "SELECT email, is_active FROM app_users;"
 ```
 
@@ -109,7 +109,7 @@ const BCRYPT_ROUNDS = (typeof configBcryptRounds === 'number' && configBcryptRou
 **If still seeing this**: Rebuild the container:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build --force-recreate n8n_pulse_app
+docker compose -f docker-compose.prod.yml up -d --build --force-recreate n8n_trace_app
 ```
 
 ## Rate Limited (429)
@@ -150,10 +150,10 @@ APP_ENV=development
 
 ```bash
 # Correct
-CORS_ORIGIN=https://pulse.example.com
+CORS_ORIGIN=https://trace.example.com
 
 # Wrong
-CORS_ORIGIN=https://pulse.example.com/  # trailing slash
+CORS_ORIGIN=https://trace.example.com/  # trailing slash
 CORS_ORIGIN=*                            # fails in production
 ```
 
@@ -173,7 +173,7 @@ CORS_ORIGIN=*                            # fails in production
 METRICS_ENABLED=true
 
 # Check data
-docker exec n8n_pulse_postgres psql -U n8n_pulse \
+docker exec n8n_trace_postgres psql -U n8n_trace \
   -c "SELECT COUNT(*) FROM n8n_metrics_snapshot;"
 
 # Check user role (Viewer cannot see full metrics)
@@ -195,8 +195,8 @@ docker exec n8n_pulse_postgres psql -U n8n_pulse \
 
 ```javascript
 // In browser console
-localStorage.getItem('n8n_pulse_dashboard_layout')
-localStorage.removeItem('n8n_pulse_dashboard_layout')  // Reset
+localStorage.getItem('n8n_trace_dashboard_layout')
+localStorage.removeItem('n8n_trace_dashboard_layout')  // Reset
 ```
 
 ## Retention Job Not Running
@@ -241,19 +241,19 @@ See [Architecture → Proxy Trust Model](./architecture.md#proxy-trust-model).
 
 ```bash
 # Check migration status
-docker exec n8n_pulse_postgres psql -U n8n_pulse -c \
+docker exec n8n_trace_postgres psql -U n8n_trace -c \
   "SELECT * FROM pgmigrations ORDER BY run_on;"
 
 # Check for invalid indexes
-docker exec n8n_pulse_postgres psql -U n8n_pulse -c \
+docker exec n8n_trace_postgres psql -U n8n_trace -c \
   "SELECT indexrelid::regclass, indisvalid FROM pg_index WHERE NOT indisvalid;"
 
 # Drop an invalid index if found
-docker exec n8n_pulse_postgres psql -U n8n_pulse -c \
+docker exec n8n_trace_postgres psql -U n8n_trace -c \
   "DROP INDEX IF EXISTS idx_executions_instance_started;"
 
 # Restart the app to re-run the migration
-docker compose restart n8n_pulse_app
+docker compose restart n8n_trace_app
 ```
 
 ## Verification Commands
@@ -263,15 +263,15 @@ docker compose restart n8n_pulse_app
 docker compose ps
 
 # Health check
-curl https://pulse.example.com/health
+curl https://trace.example.com/health
 
 # Setup status
-curl https://pulse.example.com/api/setup/status
+curl https://trace.example.com/api/setup/status
 
 # Logs
-docker compose logs -f n8n_pulse_app
+docker compose logs -f n8n_trace_app
 
 # Database
-docker exec n8n_pulse_postgres psql -U n8n_pulse \
+docker exec n8n_trace_postgres psql -U n8n_trace \
   -c "SELECT COUNT(*) FROM app_users;"
 ```

@@ -1,5 +1,5 @@
 /**
- * Comprehensive seed script for n8n Pulse dashboard
+ * Comprehensive seed script for n8n-trace dashboard
  *
  * Populates every table the UI reads from with realistic mock data so the
  * dashboard charts, tables, cards and metrics explorer all look production-
@@ -540,7 +540,7 @@ async function main() {
   const t0 = Date.now();
   console.log('');
   console.log('═══════════════════════════════════════════════════');
-  console.log('  n8n Pulse — Full Dashboard Seed');
+  console.log('  n8n-trace — Full Dashboard Seed');
   console.log('═══════════════════════════════════════════════════');
   console.log('');
 

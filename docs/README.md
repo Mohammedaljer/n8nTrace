@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="./images/n8n-pulse-logo.svg" alt="n8n Pulse" width="100" height="100">
+  <img src="./images/n8n-trace-logo.svg" alt="n8n-trace" width="100" height="100">
 </p>
 
-<h1 align="center">n8n Pulse Documentation</h1>
+<h1 align="center">n8n-trace Documentation</h1>
 
 <p align="center">
   <em>Self-hosted analytics dashboard for n8n workflow executions</em>
@@ -34,26 +34,14 @@
 
 - **Application**: Single container — Express.js serves the React SPA and REST API
 - **Database**: PostgreSQL 17 with auto-migrations
-- **Ingestion**: n8n writes data via restricted `pulse_ingest` user
+- **Ingestion**: n8n writes data via restricted `trace_ingest` user
 
 ## Key Concepts
 
-### Data Flow
-
-1. **n8n** executes workflows and writes to PostgreSQL
-2. **Backend** serves data via REST API
+ [Trace Execution Collector](images/n8n-trace_Execution_Collector.png)
 3. **Frontend** displays dashboards and analytics
 
 ### Security Model
-
-- JWT tokens in HttpOnly cookies
-- RBAC with Admin/Analyst/Viewer roles
-- Content Security Policy (CSP) via Helmet
-- Account lockout after failed login attempts
-- 12-character minimum passwords with denylist
-- Token versioning for session revocation
-- Instance scoping for multi-tenant
-- Audit logging for security events
 - Fail-fast checks prevent insecure deployments
 
 ### Database Tables
@@ -66,8 +54,8 @@
 | `n8n_metrics_snapshot` | n8n | Instance health metrics |
 | `metrics_series` | n8n | Metrics Explorer series |
 | `metrics_samples` | n8n | Metrics Explorer data |
-| `app_users` | Pulse | User accounts |
-| `audit_log` | Pulse | Security events |
+| `app_users` | n8n-trace | User accounts |
+| `audit_log` | n8n-trace | Security events |
 
 ### API Endpoints Summary
 

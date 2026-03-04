@@ -1,22 +1,27 @@
 <p align="center">
-  <img src="./docs/images/n8n-pulse-logo.svg" alt="n8n Pulse" width="120" height="120">
+  <img src="./docs/images/n8n-trace-logo.svg" alt="n8n-trace" width="120" height="120">
 </p>
 
-<h1 align="center">n8n Pulse</h1>
+<h1 align="center">n8n-trace</h1>
 
 <p align="center">
-  <strong>Self-hosted observability dashboard for n8n — execution analytics, instance metrics, and role-based access control.</strong>
+  <strong>Self-hosted observability dashboard for n8n</strong><br>
+  <em>Execution analytics • Instance metrics • RBAC • Audit logging</em>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Mohammedaljer/n8nPulse/releases">
-    <img src="https://img.shields.io/github/v/release/Mohammedaljer/n8nPulse?style=flat&logo=github" alt="Release">
+  <em><strong>This is an unofficial community project and not affiliated with n8n GmbH.</strong></em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Mohammedaljer/n8nTrace/releases">
+    <img src="https://img.shields.io/github/v/release/Mohammedaljer/n8nTrace?style=flat&logo=github" alt="Release">
   </a>
-  <a href="https://hub.docker.com/r/mohammedaljer/n8n_pulse">
-    <img src="https://img.shields.io/docker/pulls/mohammedaljer/n8n_pulse?style=flat&logo=docker" alt="Docker Pulls">
+  <a href="https://hub.docker.com/r/mohammedaljer/n8n-trace">
+    <img src="https://img.shields.io/docker/pulls/mohammedaljer/n8n-trace?style=flat&logo=docker" alt="Docker Pulls">
   </a>
   <a href="./LICENSE">
-    <img src="https://img.shields.io/github/license/Mohammedaljer/n8nPulse?style=flat" alt="License: MIT">
+    <img src="https://img.shields.io/github/license/Mohammedaljer/n8nTrace?style=flat" alt="License: MIT">
   </a>
   <a href="https://nodejs.org/">
     <img src="https://img.shields.io/badge/node-22+-brightgreen.svg" alt="Node 22+">
@@ -27,12 +32,12 @@
 </p>
 
 <p align="center">
-  <img src="./docs/images/n8n_pulse.gif" alt="n8n Pulse Demo" width="900">
+  <img src="./docs/images/n8n-trace.gif" alt="n8n-trace Demo" width="900">
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &nbsp;·&nbsp;
-  <a href="#connect-n8n-to-pulse">Connect n8n</a> &nbsp;·&nbsp;
+  <a href="#connect-n8n-to-n8n-trace">Connect n8n</a> &nbsp;·&nbsp;
   <a href="#features">Features</a> &nbsp;·&nbsp;
   <a href="#security">Security</a> &nbsp;·&nbsp;
   <a href="./docs/deployment.md">Deploy</a> &nbsp;·&nbsp;
@@ -42,17 +47,17 @@
 
 ---
 
-## What is n8n Pulse?
+## What is n8n-trace?
 
-n8n Pulse is a self-hosted observability and analytics platform for n8n. It gives you execution analytics, instance health monitoring, a Prometheus-style metrics explorer, and role-based access control — purpose-built for production environments.
+n8n-trace is a self-hosted observability and analytics platform for n8n. It gives you execution analytics, instance health monitoring, a Prometheus-style metrics explorer, and role-based access control — purpose-built for production environments.
 
-Pulse runs as a **single hardened Docker container** alongside PostgreSQL. It never makes outbound calls to your n8n instances. Data flows one way: n8n pushes to Pulse, not the other way around.
+n8n-trace runs as a **single hardened Docker container** alongside PostgreSQL. It never makes outbound calls to your n8n instances. Data flows one way: n8n pushes to n8n-trace, not the other way around.
 
 <p align="center">
-  <img src="./docs/images/dashboard-preview1.png" alt="n8n Pulse — Execution Analytics" width="700">
+  <img src="./docs/images/dashboard-preview1.png" alt="n8n-trace — Execution Analytics" width="700">
 </p>
 <p align="center">
-  <img src="./docs/images/execution.png" alt="n8n Pulse — Instance Metrics" width="700">
+  <img src="./docs/images/execution.png" alt="n8n-trace — Instance Metrics" width="700">
 </p>
 
 ---
@@ -66,41 +71,37 @@ Pulse runs as a **single hardened Docker container** alongside PostgreSQL. It ne
 
 ---
 
-## Why not just use n8n's built-in UI?
+## Why n8n-trace alongside n8n?
 
-| | n8n Built-in | n8n Pulse |
-|---|:---:|:---:|
-| Execution list | Yes | Yes |
-| Success/failure rates over time | No | Yes |
-| Node-level performance (P95, durations) | No | Yes |
-| CPU / memory / event loop monitoring | No | Yes |
-| Prometheus metrics explorer | No | Yes |
-| Multi-instance single dashboard | No | Yes |
-| Role-based access control | Limited | Full (Admin / Analyst / Viewer + scoping) |
-| Audit logging with IP privacy | No | Yes |
-| Data retention policies | No | Yes |
-| CSV export | No | Yes |
-| Zero access to n8n credentials | N/A | Yes — Pulse never calls n8n |
+n8n-trace **complements** n8n's built-in UI with enterprise observability features:
 
-n8n Pulse is **not** a replacement for the n8n editor. It is a dedicated observability layer that sits alongside your n8n deployment.
+| Feature | n8n Built-in | n8n-trace |
+|---------|--------------|-----------|
+| **Node-level metrics (P95)** | ❌ | ✅ |
+| **Multi-instance dashboard** | ❌ | ✅ |
+| **Advanced RBAC (workflow scoping)** | Limited | ✅ Full |
+| **Audit logging** | ❌ | ✅ |
+| **Prometheus explorer** | ❌ | ✅ *(optional)* |
+
+**n8n-trace is your dedicated observability layer** — it works alongside n8n without replacing the workflow editor.
 
 ---
 
 ## Features
+
 Core capabilities designed for production environments:
 
 | Feature | Description |
 |---------|-------------|
 | **📊 Execution Analytics** | Success/failure rates, duration trends, node-level performance |
 | **📈 Instance Monitoring** | CPU, memory, event loop metrics via Prometheus endpoint |
-| **🔍 Metrics Explorer** | Query and chart any Prometheus metric with label filtering and aggregation |
+| **🔍 Metrics Explorer** | Query and chart any Prometheus metric with label filtering |
 | **🧭 Multi-Instance** | Monitor prod, staging, dev from a single dashboard |
-| **👥 Role-Based Access** | Admin, Analyst, Viewer roles with instance/workflow/tag scoping |
-| **🔒 Audit Logging** | All security events logged with configurable IP privacy (raw, hashed, none) |
-| **🗑️ Data Retention** | Automatic cleanup of old execution data on a configurable schedule |
-| **⬇️ CSV Export** | Export execution data and metrics for external analysis |
-| **📦 Single Container** | Google Distroless image — no shell, no package manager, minimal attack surface |
-| **🔄 Auto-Migrations** | Database schema upgrades run automatically on startup |
+| **👥 Role-Based Access** | Admin, Analyst, Viewer roles with instance/workflow scoping |
+| **🔒 Audit Logging** | All security events logged with configurable IP privacy |
+| **🗑️ Data Retention** | Automatic cleanup of old execution data |
+| **⬇️ CSV Export** | Export execution data and metrics for analysis |
+| **📦 Single Container** | Google Distroless image — minimal attack surface |
 
 ---
 
@@ -109,92 +110,79 @@ Core capabilities designed for production environments:
 **Prerequisites:** Docker + Docker Compose v2+
 
 ```bash
-git clone https://github.com/Mohammedaljer/n8nPulse.git
-cd n8nPulse
+git clone https://github.com/Mohammedaljer/n8nTrace.git
+cd n8n-trace
 cp .env.example .env
 ```
 
 > [!IMPORTANT]
-> You **must** generate strong secrets before starting. Pulse refuses to start in production with weak or placeholder values.
+> Generate strong secrets:
+> ```bash
+> openssl rand -base64 24  # POSTGRES_PASSWORD
+> openssl rand -base64 32  # JWT_SECRET
+> ```
 
-```bash
-# Generate and paste into .env
-openssl rand -base64 24   # → POSTGRES_PASSWORD
-openssl rand -base64 32   # → JWT_SECRET (min 32 chars)
-```
+> [!NOTE]
+> **Metrics optional**: Set `RETENTION_ENABLED: "false"` if you only want workflow executions. n8n-trace works without Prometheus metrics.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-Open **http://localhost:8899/setup** and create the first admin user.
+Open `http://localhost:8899/setup` → create admin user.
 
 > [!NOTE]
-> The `/setup` page is only accessible when zero users exist in the database. After the first admin is created, it is permanently disabled.
+> **Metrics are optional.** If you don’t enable metrics collection on your n8n side, you can disable metrics features in n8n-trace too and still use execution analytics and workflow views.
+>
+> Set in `.env`:
+> ```env
+> METRICS_ENABLED="false"
+> ```
 
 ---
 
-## Connect n8n to Pulse
+## Connect n8n to n8n-trace
 
-Data flows from n8n to Pulse via **two included n8n workflows** that write directly to the Pulse database. Pulse never calls n8n.
+Data flows from n8n to n8n-trace via **two included n8n workflows** that write directly to the database.
 
-### 1. Import the workflows
+### 1. Import workflows
 
-Import these from the [`/Workflows`](./Workflows/) folder into your n8n instance:
+Import these from the [`/Workflows`](./Workflows/) folder:
 
 | Workflow | Purpose |
 |----------|---------|
-| [`Pulse-Execution-Collector.json`](./Workflows/Pulse-Execution-Collector.json) | Syncs executions, node-level data, and workflow metadata |
-| [`metrics-snapshot.json`](./Workflows/metrics-snapshot.json) | Collects instance health metrics (CPU, memory, event loop) |
+| [`n8n-trace-Execution-Collector.json`](./Workflows/n8n-trace-Execution-Collector.json) | Syncs executions and node data |
+| [`metrics-snapshot.json`](./Workflows/metrics-snapshot.json) | Collects instance health metrics *(optional)* |
 
-### 2. Configure the database connection
+### 2. Configure database connection
 
-Both workflows use a **restricted ingest user** with least-privilege access (INSERT/UPDATE only — no access to user accounts or audit logs).
-
-Add to your `.env`:
-
+Add to `.env`:
 ```bash
-PULSE_INGEST_USER=pulse_ingest
-PULSE_INGEST_PASSWORD=<your-strong-password>
+TRACE_INGEST_USER=trace_ingest
+TRACE_INGEST_PASSWORD=<your-strong-password>
 ```
 
-Configure the PostgreSQL node in each workflow:
-
-| Field | Value |
-|-------|-------|
-| Host | Your Pulse PostgreSQL host (e.g., `postgres` on Docker network) |
-| Port | `5432` |
-| Database | `n8n_pulse` |
-| User | `pulse_ingest` |
-| Password | Value of `PULSE_INGEST_PASSWORD` |
-
-### 3. Activate both workflows
-
-Data will appear in your dashboard within minutes.
-
-> [!TIP]
-> See the [Workflows README](./Workflows/README.md) for flow diagrams, captured metrics, scheduling options, and design details.
+Configure PostgreSQL node in each workflow with `trace_ingest` credentials.
 
 ---
 
 ## Architecture
-n8n Pulse follows a strict push-based, zero-trust architecture:
-```text
+
+```
 ┌─────────────┐      ┌────────────────────────────────────┐
-│   n8n       │      │           n8n Pulse                │
-│  Instance   │      │  ┌──────────┐  ┌────────────────┐  │
-│             │ ───► │  │PostgreSQL│◄─│ Express + SPA  │  │
-│  (writes    │      │  │  :5432   │  │    :8899       │  │
+│   n8n       │      │           n8n-trace                │
+│  Instance   │ ───► │  ┌──────────┐  ┌────────────────┐  │
+│             │      │  │PostgreSQL│◄─│ Express + SPA  │  │
+│  (writes    │      │  │  :5432   │  │     :8899      │  │
 │   via       │      │  └──────────┘  └────────────────┘  │
 │   ingest)   │      └────────────────────────────────────┘
-└─────────────┘                           ▲
-                                          │ HTTPS
-                                     Your Browser
+└─────────────┘                     ▲
+                                    │ HTTPS
+                               Your Browser
 ```
 
 - **Single container** — Express.js serves the React SPA and REST API (Google Distroless, Node.js 22)
-- **Push-based ingestion** — n8n workflows write directly to PostgreSQL; Pulse never calls n8n
-- **Two containers total** — the app + PostgreSQL. No NGINX, no sidecars.
+- **Push-based ingestion** — n8n workflows write directly to PostgreSQL; Trace never calls n8n
 
 See the [Architecture Guide](./docs/architecture.md) for the full request flow, proxy trust model, and deployment topologies.
 
@@ -223,12 +211,11 @@ n8n Pulse is designed for production self-hosting with defense-in-depth:
 See the full [Security Guide](./docs/security.md).
 
 ---
-
 ## Docker Hub
 
 <p align="center">
-  <a href="https://hub.docker.com/r/mohammedaljer/n8n_pulse">
-    <img src="https://img.shields.io/badge/Docker_Hub-mohammedaljer/n8n__pulse-blue?logo=docker&logoColor=white&style=for-the-badge" alt="Docker Hub">
+  <a href="https://hub.docker.com/r/mohammedaljer/n8n-trace">
+    <img src="https://img.shields.io/badge/Docker_Hub-mohammedaljer/n8n__trace-blue?logo=docker&logoColor=white&style=for-the-badge" alt="Docker Hub">
   </a>
 </p>
 
@@ -338,6 +325,6 @@ Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelin
 
 [MIT](./LICENSE) © 2026 Mohammed Aljer
 
-<p align="center">
-  <em>Built for the n8n community.</em>
-</p>
+---
+
+<p align="center"> <em>Built for n8n community • <strong>Unofficial project, not affiliated with n8n GmbH</strong></em> </p>

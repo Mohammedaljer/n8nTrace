@@ -75,15 +75,15 @@ function buildAuthApp(poolOverride) {
   const signToken = (payload) => jwt.sign(payload, TEST_JWT_SECRET, { expiresIn: '10m' });
 
   const setAuthCookie = (res, token) => {
-    res.cookie('n8n_pulse_token', token, { httpOnly: true, path: '/', maxAge: 30 * 60 * 1000 });
+    res.cookie('n8n_trace_token', token, { httpOnly: true, path: '/', maxAge: 30 * 60 * 1000 });
   };
 
   const clearAuthCookie = (res) => {
-    res.clearCookie('n8n_pulse_token', { path: '/' });
+    res.clearCookie('n8n_trace_token', { path: '/' });
   };
 
   const requireAuth = (req, res, next) => {
-    const token = req.cookies?.n8n_pulse_token;
+    const token = req.cookies?.n8n_trace_token;
     if (!token) return res.status(401).json({ error: 'Not authenticated' });
     try {
       const payload = jwt.verify(token, TEST_JWT_SECRET);

@@ -9,7 +9,7 @@
         992
       ],
       "id": "1cd6bd1c-fa7b-43b2-b6ec-b9edd84e87f7",
-      "name": " Pulse Sync Trigger"
+      "name": "Trace Sync Trigger"
     },
     {
       "parameters": {
@@ -24,7 +24,7 @@
         1216
       ],
       "id": "4017e169-52ed-4464-bfda-1816fe6657fc",
-      "name": "Load Pulse Checkpoint (last_id + refresh)"
+      "name": "Load Trace Checkpoint (last_id + refresh)"
     },
     {
       "parameters": {
@@ -320,7 +320,7 @@
     },
     {
       "parameters": {
-        "content": "## n8n Pulse Sync — Overview\n\nThis workflow keeps the Pulse database in sync with n8n executions.\n\nIt performs:\n\n- Checkpoint tracking (last processed execution)\n- Incremental ingestion\n- Refresh of running executions\n- Size-aware parsing (avoid huge payloads)\n- Execution + node upserts\n- Workflow metadata indexing\n\nGoal: near-real-time observability without heavy DB load.\n",
+        "content": "## n8n-trace Sync — Overview\n\nThis workflow keeps the n8n-trace database in sync with n8n executions.\n\nIt performs:\n\n- Checkpoint tracking (last processed execution)\n- Incremental ingestion\n- Refresh of running executions\n- Size-aware parsing (avoid huge payloads)\n- Execution + node upserts\n- Workflow metadata indexing\n\nGoal: near-real-time observability without heavy DB load.\n",
         "height": 640,
         "width": 560
       },
@@ -335,7 +335,7 @@
     },
     {
       "parameters": {
-        "content": "## Checkpoint Strategy\n\nWe store the highest execution ID already ingested.\n\nEach run:\n\n1. Fetch last processed ID from Pulse\n2. Identify executions still running\n3. Fetch only new or unfinished executions\n\nThis ensures:\n\n- No duplicates\n- Safe resume\n- Efficient sync\n",
+        "content": "## Checkpoint Strategy\n\nWe store the highest execution ID already ingested.\n\nEach run:\n\n1. Fetch last processed ID from n8n-trace\n2. Identify executions still running\n3. Fetch only new or unfinished executions\n\nThis ensures:\n\n- No duplicates\n- Safe resume\n- Efficient sync\n",
         "height": 672,
         "width": 384,
         "color": 7
@@ -351,7 +351,7 @@
     },
     {
       "parameters": {
-        "content": "## Bootstrap Mode\n\nIf Pulse database is empty:\n\nWe start from recent executions instead of full history.\n\nReason:\n\nBackfilling all executions can be expensive and slow.\n\nPulse behaves like a monitoring system — it observes from \"now\".\n",
+        "content": "## Bootstrap Mode\n\nIf the n8n-trace database is empty:\n\nWe start from recent executions instead of full history.\n\nReason:\n\nBackfilling all executions can be expensive and slow.\n\nn8n-trace behaves like a monitoring system — it observes from \"now\".\n",
         "height": 672,
         "width": 400,
         "color": 7
@@ -383,7 +383,7 @@
     },
     {
       "parameters": {
-        "content": "## runData Parsing\n\nFor small executions we:\n\n- Decode execution_data\n- Extract node runs\n- Compute items out\n- Track last executed node\n- Generate execution + node rows\n\nThis enables deep observability in Pulse.\n",
+        "content": "## runData Parsing\n\nFor small executions we:\n\n- Decode execution_data\n- Extract node runs\n- Compute items out\n- Track last executed node\n- Generate execution + node rows\n\nThis enables deep observability in n8n-trace.\n",
         "height": 560,
         "width": 736,
         "color": 7
@@ -522,7 +522,7 @@
     }
   ],
   "connections": {
-    " Pulse Sync Trigger": {
+    "Trace Sync Trigger": {
       "main": [
         [
           {
@@ -533,7 +533,7 @@
         ]
       ]
     },
-    "Load Pulse Checkpoint (last_id + refresh)": {
+    "Load Trace Checkpoint (last_id + refresh)": {
       "main": [
         [
           {
@@ -699,7 +699,7 @@
             "index": 0
           },
           {
-            "node": "Load Pulse Checkpoint (last_id + refresh)",
+            "node": "Load Trace Checkpoint (last_id + refresh)",
             "type": "main",
             "index": 0
           }

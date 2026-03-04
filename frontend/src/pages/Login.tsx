@@ -92,10 +92,10 @@ export default function LoginPage() {
         {/* Logo/Header */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center mb-2">
-            <img src="/n8n_Pulse.svg" alt="n8n Pulse" className="h-16 w-16" />
+            <img src="/n8n-trace.svg" alt="n8n-trace" className="h-16 w-16" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-            n8n Pulse
+            n8n-trace
           </h1>
           <p className="text-muted-foreground text-sm">
             Workflow analytics & monitoring dashboard
@@ -196,9 +196,9 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground space-x-4">
-          <span>&copy; {new Date().getFullYear()} n8n Pulse</span>
+          <span>&copy; {new Date().getFullYear()} n8n-trace</span>
           <a 
-            href="https://github.com/Mohammedaljer/n8nPulse" 
+            href="https://github.com/Mohammedaljer/n8nTrace" 
             target="_blank" 
             rel="noopener noreferrer"
             className="hover:text-foreground transition-colors"

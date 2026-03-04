@@ -1,12 +1,12 @@
-# Contributing to n8n Pulse
+# Contributing to n8n-trace
 
-Thank you for your interest in contributing to n8n Pulse. This guide covers the development workflow, project conventions, and pull request expectations.
+Thank you for your interest in contributing to n8n-trace. This guide covers the development workflow, project conventions, and pull request expectations.
 
 ---
 
 ## Table of Contents
 
-- [Contributing to n8n Pulse](#contributing-to-n8n-pulse)
+- [Contributing to n8n-trace](#contributing-to-n8n-trace)
   - [Table of Contents](#table-of-contents)
   - [Quick Start](#quick-start)
   - [Development Setup](#development-setup)
@@ -38,8 +38,8 @@ Thank you for your interest in contributing to n8n Pulse. This guide covers the 
 
 ```bash
 # 1. Fork and clone
-git clone https://github.com/<your-username>/n8nPulse.git
-cd n8nPulse
+git clone https://github.com/<your-username>/n8nTrace.git
+cd n8nTrace
 
 # 2. Create a branch
 git checkout -b feature/my-change
@@ -54,7 +54,7 @@ docker compose -f docker-compose.local.yml up -d
 git push origin feature/my-change
 ```
 
-Then open a Pull Request at https://github.com/Mohammedaljer/n8nPulse/compare.
+Then open a Pull Request at https://github.com/Mohammedaljer/n8nTrace/compare.
 
 ---
 
@@ -78,7 +78,7 @@ docker compose -f docker-compose.local.yml up -d
 
 The app will be available at **http://localhost:8899** (configurable via `HTTP_PORT`).
 
-The local compose file builds the unified image from the root `Dockerfile`, which compiles the React frontend and bundles it into the Express backend. A single container (`n8n_pulse_app`) serves both the API and the SPA on port 8001 (mapped to the host port above).
+The local compose file builds the unified image from the root `Dockerfile`, which compiles the React frontend and bundles it into the Express backend. A single container (`n8n_trace_app`) serves both the API and the SPA on port 8001 (mapped to the host port above).
 
 ### Option B — Local Node.js
 
@@ -101,10 +101,10 @@ npm run dev          # Vite dev server with HMR
 
 ## Project Architecture
 
-n8n Pulse ships as a **single Docker image** (`mohammedaljer/n8n_pulse`). The multi-stage `Dockerfile` at the repo root builds the React SPA, installs backend dependencies, and produces a [Distroless](https://github.com/GoogleContainerTools/distroless) production image (`gcr.io/distroless/nodejs22-debian12:nonroot`) with no shell and a non-root user.
+n8n-trace ships as a **single Docker image** (`mohammedaljer/n8n-trace`). The multi-stage `Dockerfile` at the repo root builds the React SPA, installs backend dependencies, and produces a [Distroless](https://github.com/GoogleContainerTools/distroless) production image (`gcr.io/distroless/nodejs22-debian12:nonroot`) with no shell and a non-root user.
 
 ```
-n8nPulse/
+n8n-trace/
 ├── Dockerfile                # Unified multi-stage build (frontend + backend → distroless)
 ├── docker-compose.prod.yml   # Production compose (pre-built image + Postgres)
 ├── docker-compose.local.yml  # Development compose (builds from Dockerfile)
@@ -158,7 +158,7 @@ n8nPulse/
 
 ### RBAC-Aware Development
 
-n8n Pulse enforces role-based access control (Admin / Analyst / Viewer) at the API layer. When adding or modifying data endpoints:
+n8n-trace enforces role-based access control (Admin / Analyst / Viewer) at the API layer. When adding or modifying data endpoints:
 
 1. Use the centralized `getAuthorizationContext()` helper from `backend/src/services/authz.js` to resolve the caller's permissions.
 2. Apply scope filters (workflow, tag, instance) to all data queries for non-admin users.
@@ -325,7 +325,7 @@ Include:
 
 ## Reporting Issues
 
-Use [GitHub Issues](https://github.com/Mohammedaljer/n8nPulse/issues/new/choose):
+Use [GitHub Issues](https://github.com/Mohammedaljer/n8nTrace/issues/new/choose):
 
 - **Bug reports** — include steps to reproduce, expected vs. actual behavior, and your environment (Docker version, OS, browser).
 - **Feature requests** — describe the use case and proposed solution.

@@ -84,7 +84,7 @@ Backend **refuses to start** in production if:
 
 ## Content Security Policy (CSP)
 
-n8n Pulse ships with a strict Content Security Policy enforced by Helmet. The CSP applies to **all responses** (API and static SPA files) because Express serves everything from a single process — there is no separate nginx layer.
+n8n-trace ships with a strict Content Security Policy enforced by Helmet. The CSP applies to **all responses** (API and static SPA files) because Express serves everything from a single process — there is no separate nginx layer.
 
 ### Directives
 
@@ -164,7 +164,7 @@ All password-setting operations (initial setup, set-password, reset-password) en
 The denylist includes:
 - NCSC top-20 (`password`, `123456`, `qwerty`, etc.)
 - Keyboard walks (`qwerty123`, `1q2w3e4r`, etc.)
-- Project-specific (`n8npulse`, `n8n_pulse`, `pulseadmin`)
+- Project-specific (`n8ntrace`, `n8n_trace`, `traceadmin`)
 - Seasonal patterns (`summer2024`, `winter2025`)
 
 > The validation logic lives in `backend/src/utils/password.js` as a single source of truth used by all routes.
@@ -173,7 +173,7 @@ The denylist includes:
 
 ## Session Revocation
 
-n8n Pulse supports global session revocation via token versioning.
+n8n-trace supports global session revocation via token versioning.
 
 ### How It Works
 
@@ -235,7 +235,7 @@ When accessed directly (no reverse proxy), Express uses the raw TCP connection I
 
 ### Behind a Reverse Proxy: `TRUST_PROXY=1`
 
-When you place your own reverse proxy (Traefik, Caddy, NGINX, ALB) in front of n8n Pulse for TLS termination, set `TRUST_PROXY=1`. Express reads the real client IP from the rightmost entry in `X-Forwarded-For`.
+When you place your own reverse proxy (Traefik, Caddy, NGINX, ALB) in front of n8n-trace for TLS termination, set `TRUST_PROXY=1`. Express reads the real client IP from the rightmost entry in `X-Forwarded-For`.
 
 ### When to Change
 
@@ -267,7 +267,7 @@ See [Architecture → Proxy Trust Model](./architecture.md#proxy-trust-model) fo
 
 ## CSRF Protection
 
-n8n Pulse validates the `Origin` (or `Referer`) header on **all mutating requests** (`POST`, `PUT`, `PATCH`, `DELETE`) to any `/api/` endpoint.
+n8n-trace validates the `Origin` (or `Referer`) header on **all mutating requests** (`POST`, `PUT`, `PATCH`, `DELETE`) to any `/api/` endpoint.
 
 ### How It Works
 
@@ -287,10 +287,10 @@ CSRF protection works alongside:
 
 ```bash
 # Correct
-CORS_ORIGIN=https://pulse.example.com
+CORS_ORIGIN=https://trace.example.com
 
 # Wrong
-CORS_ORIGIN=https://pulse.example.com/  # trailing slash
+CORS_ORIGIN=https://trace.example.com/  # trailing slash
 CORS_ORIGIN=*                            # rejected in production
 ```
 
@@ -300,7 +300,7 @@ CORS_ORIGIN=*                            # rejected in production
 
 ### Ingest User (Least Privilege)
 
-`pulse_ingest` can only:
+`trace_ingest` can only:
 - SELECT, INSERT, UPDATE on: `executions`, `execution_nodes`, `workflows_index`, `n8n_metrics_snapshot`, `metrics_series`, `metrics_samples`
 
 Cannot:
@@ -315,7 +315,7 @@ PostgreSQL not exposed to host in production compose.
 
 ## Rate Limiting
 
-n8n Pulse uses `express-rate-limit` middleware for per-IP rate limiting on sensitive endpoints.
+n8n-trace uses `express-rate-limit` middleware for per-IP rate limiting on sensitive endpoints.
 
 | Limiter | Rate | Window | Applied To |
 |---------|------|--------|------------|
@@ -332,7 +332,7 @@ Rate limiters key on the client IP derived from `TRUST_PROXY`. When `TRUST_PROXY
 
 ### Body Size Limit
 
-Express rejects request bodies larger than 1 MB via `express.json({ limit: '1mb' })`. n8n Pulse only accepts small JSON payloads (login credentials, query parameters, admin operations).
+Express rejects request bodies larger than 1 MB via `express.json({ limit: '1mb' })`. n8n-trace only accepts small JSON payloads (login credentials, query parameters, admin operations).
 
 **Response when exceeded**: HTTP `413 Payload Too Large`.
 ---
@@ -367,7 +367,7 @@ Express rejects request bodies larger than 1 MB via `express.json({ limit: '1mb'
 
 ## Security Assessment
 
-n8n Pulse includes the following defense-in-depth measures:
+n8n-trace includes the following defense-in-depth measures:
 
 ### Authentication & Sessions
 - JWT auth with HttpOnly/Secure/SameSite cookies (30-min maxAge)

@@ -1,5 +1,5 @@
 /**
- * n8n Pulse - Backend API Server
+ * n8n-trace - Backend API Server
  * Refactored into modules with zero behavior changes.
  */
 
@@ -26,7 +26,7 @@ const app = createApp({ pool, state });
 
 const port = Number(process.env.PORT || 8001);
 const server = app.listen(port, async () => {
-  console.log(`n8n Pulse API listening on :${port}`);
+  console.log(`n8n-trace API listening on :${port}`);
   console.log(`Environment: ${APP_ENV}`);
   await autoInit();
   state.dbReady = true;

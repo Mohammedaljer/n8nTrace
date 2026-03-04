@@ -89,8 +89,8 @@ Thanks.`;
       <div className="w-full max-w-md space-y-6">
         {/* Logo/Header */}
         <div className="text-center space-y-2">
-          <img src="/n8n_Pulse.svg" alt="n8n Pulse" className="h-12 w-12 mx-auto mb-2" />
-          <h1 className="text-2xl font-bold tracking-tight">n8n Pulse</h1>
+          <img src="/n8n-trace.svg" alt="n8n-trace" className="h-12 w-12 mx-auto mb-2" />
+          <h1 className="text-2xl font-bold tracking-tight">n8n-trace</h1>
         </div>
 
         <Card className="border-0 shadow-lg">
@@ -209,9 +209,9 @@ Thanks.`;
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground space-x-4">
-          <span>&copy; {new Date().getFullYear()} n8n Pulse. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} n8n-trace. All rights reserved.</span>
           <a 
-            href="https://github.com/Mohammedaljer/n8nPulse" 
+            href="https://github.com/Mohammedaljer/n8nTrace" 
             target="_blank" 
             rel="noopener noreferrer"
             className="hover:text-foreground transition-colors"

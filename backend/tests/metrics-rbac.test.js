@@ -46,7 +46,7 @@ const noopLimiter = (_req, _res, next) => next();
  */
 function mockRequireAuth() {
   return (req, res, next) => {
-    const token = req.cookies?.n8n_pulse_token;
+    const token = req.cookies?.n8n_trace_token;
     if (!token) return res.status(401).json({ error: 'Not authenticated' });
     try {
       req.user = jwt.verify(token, TEST_JWT_SECRET);
@@ -141,7 +141,7 @@ function buildTestApp({ permissionsForUser, authzForUser, pool: poolOverride, me
 }
 
 function authCookie(token) {
-  return ['Cookie', `n8n_pulse_token=${token}`];
+  return ['Cookie', `n8n_trace_token=${token}`];
 }
 
 // ═════════════════════════════════════════════════════════════════════════

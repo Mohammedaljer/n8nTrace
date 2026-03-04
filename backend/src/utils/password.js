@@ -20,8 +20,8 @@ const WEAK_PASSWORDS = new Set([
   // Keyboard walks
   'qwertyuiop', 'asdfghjkl', 'zxcvbnm', '1q2w3e4r',
   'qwerty12345', 'qazwsx', '1qaz2wsx', 'abcd1234',
-  // n8n / Pulse-specific (prevent trivial project-related passwords)
-  'n8npulse', 'n8npulse123', 'pulse123', 'dashboard',
+  // n8n-trace-specific (prevent trivial project-related passwords)
+  'n8ntrace', 'n8ntrace123', 'trace123', 'dashboard',
   'dashboard123', 'adminadmin', 'administrator',
   // Seasons / patterns
   'summer2025', 'winter2025', 'spring2025', 'summer2026',

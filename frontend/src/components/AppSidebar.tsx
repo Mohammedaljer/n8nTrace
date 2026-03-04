@@ -51,8 +51,8 @@ export function AppSidebar() {
       aria-label="Main navigation"
     >
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-        <img src="/n8n_Pulse.svg" alt="n8n Pulse" className="h-5 w-5 shrink-0" aria-hidden="true" />
-        {!collapsed && <span className="text-sm font-semibold tracking-tight">n8n Pulse</span>}
+        <img src="/n8n-trace.svg" alt="n8n-trace" className="h-5 w-5 shrink-0" aria-hidden="true" />
+        {!collapsed && <span className="text-sm font-semibold tracking-tight">n8n-trace</span>}
         <Button
           variant="ghost"
           size="icon"
@@ -134,7 +134,7 @@ export function AppSidebar() {
         "border-t border-sidebar-border py-2 text-center text-[11px] text-sidebar-muted/60 select-none",
         collapsed ? "px-1" : "px-4"
       )}>
-        {collapsed ? `v${__APP_VERSION__}`.slice(0, 4) : `n8n Pulse v${__APP_VERSION__}`}
+        {collapsed ? `v${__APP_VERSION__}`.slice(0, 4) : `n8n-trace v${__APP_VERSION__}`}
       </div>
     </aside>
   );

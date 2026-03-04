@@ -1,6 +1,6 @@
 # Environment Variables Reference
 
-Complete reference for all environment variables required to deploy n8n Pulse via Docker Compose or other container orchestration platforms.
+Complete reference for all environment variables required to deploy n8n-trace via Docker Compose or other container orchestration platforms.
 
 ---
 
@@ -37,7 +37,7 @@ These variables **must** be set for the application to start.
 |----------|-------------|---------|-------|
 | `POSTGRES_PASSWORD` | Password for PostgreSQL database | `$(openssl rand -base64 24)` | Generate securely. Never use placeholders. |
 | `JWT_SECRET` | Secret key for signing JWT tokens | `$(openssl rand -base64 32)` | **Minimum 32 characters.** Backend refuses to start if shorter in production. |
-| `DATABASE_URL` | PostgreSQL connection string | `postgres://n8n_pulse:${POSTGRES_PASSWORD}@postgres:5432/n8n_pulse` | Use container hostname `postgres` in Docker Compose. |
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://n8n_trace:${POSTGRES_PASSWORD}@postgres:5432/n8n_trace` | Use container hostname `postgres` in Docker Compose. |
 
 ---
 
@@ -46,8 +46,8 @@ These variables **must** be set for the application to start.
 | Variable | Default | Required | Description | Example |
 |----------|---------|----------|-------------|---------|
 | `APP_ENV` | `production` | No | Set to `production` to enable fail-fast security checks | `production` |
-| `APP_URL` | `http://localhost:3000` (dev), empty (prod) | Yes (prod) | Public URL for the application. Used for CSRF validation and links. | `https://pulse.example.com` |
-| `CORS_ORIGIN` | `http://localhost:3000` (dev) | Yes (prod) | Allowed origin for CORS. Must match frontend URL exactly. | `https://pulse.example.com` |
+| `APP_URL` | `http://localhost:3000` (dev), empty (prod) | Yes (prod) | Public URL for the application. Used for CSRF validation and links. | `https://trace.example.com` |
+| `CORS_ORIGIN` | `http://localhost:3000` (dev) | Yes (prod) | Allowed origin for CORS. Must match frontend URL exactly. | `https://trace.example.com` |
 | `PORT` | `8001` | No | Backend internal HTTP port | `8001` |
 | `HTTP_PORT` | `8899` | No | Published port (Docker host mapping) | `8899` |
 
@@ -137,8 +137,8 @@ Restricted database user for n8n workflows to write execution data.
 
 | Variable | Default | Required | Description | Example |
 |----------|---------|----------|-------------|---------|
-| `PULSE_INGEST_USER` | (none) | No | PostgreSQL username for ingest | `pulse_ingest` |
-| `PULSE_INGEST_PASSWORD` | (none) | No | PostgreSQL password for ingest | `$(openssl rand -base64 24)` |
+| `TRACE_INGEST_USER` | (none) | No | PostgreSQL username for ingest | `trace_ingest` |
+| `TRACE_INGEST_PASSWORD` | (none) | No | PostgreSQL password for ingest | `$(openssl rand -base64 24)` |
 
 **Ingest user permissions (least privilege):**
 - ✅ SELECT, INSERT, UPDATE on: `executions`, `execution_nodes`, `workflows_index`, `n8n_metrics_snapshot`, `metrics_series`, `metrics_samples`
@@ -192,8 +192,8 @@ Automatic cleanup of old data.
 | Variable | Default | Required | Description | Example |
 |----------|---------|----------|-------------|---------|
 | `DATABASE_URL` | (none) | **Yes** | PostgreSQL connection string | `postgres://user:pass@host:5432/db` |
-| `POSTGRES_USER` | `n8n_pulse` | No | Database username (compose) | `n8n_pulse` |
-| `POSTGRES_DB` | `n8n_pulse` | No | Database name (compose) | `n8n_pulse` |
+| `POSTGRES_USER` | `n8n_trace` | No | Database username (compose) | `n8n_trace` |
+| `POSTGRES_DB` | `n8n_trace` | No | Database name (compose) | `n8n_trace` |
 | `DB_POOL_MAX` | `20` | No | Maximum connections in pool | `20` |
 | `DB_IDLE_TIMEOUT` | `30000` | No | Idle connection timeout (ms) | `30000` |
 | `DB_CONNECT_TIMEOUT` | `5000` | No | Connection timeout (ms) | `5000` |
@@ -213,7 +213,7 @@ Automatic cleanup of old data.
 
 ```bash
 # ============================================
-# n8n Pulse - Production Environment
+# n8n-trace - Production Environment
 # ============================================
 # Copy to .env and fill in values
 # NEVER commit this file to version control
@@ -229,8 +229,8 @@ JWT_SECRET=CHANGE_ME_GENERATE_SECURE_SECRET_AT_LEAST_32_CHARS
 
 # --- Application ---
 APP_ENV=production
-APP_URL=https://pulse.example.com
-CORS_ORIGIN=https://pulse.example.com
+APP_URL=https://trace.example.com
+CORS_ORIGIN=https://trace.example.com
 HTTP_PORT=8899
 
 # --- Security ---
@@ -253,8 +253,8 @@ AUDIT_LOG_IP_SALT=CHANGE_ME_GENERATE_32_CHAR_SALT
 # ADMIN_PASSWORD=SecurePassword123!
 
 # --- n8n Ingestion (optional) ---
-PULSE_INGEST_USER=pulse_ingest
-PULSE_INGEST_PASSWORD=CHANGE_ME_GENERATE_SECURE_PASSWORD
+TRACE_INGEST_USER=trace_ingest
+TRACE_INGEST_PASSWORD=CHANGE_ME_GENERATE_SECURE_PASSWORD
 
 # --- Features ---
 METRICS_ENABLED=true

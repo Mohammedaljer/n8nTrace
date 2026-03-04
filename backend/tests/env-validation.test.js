@@ -73,7 +73,7 @@ describe('env.js — validateEnv', () => {
     process.env.DATABASE_URL = 'postgres://localhost/test';
     process.env.APP_ENV = 'production';
     process.env.JWT_SECRET = GOOD_SECRET;
-    process.env.APP_URL = 'https://pulse.example.com';
+    process.env.APP_URL = 'https://trace.example.com';
     delete process.env.CORS_ORIGIN;
 
     expect(() => loadAndRun()).toThrow('EXIT_1');
@@ -86,8 +86,8 @@ describe('env.js — validateEnv', () => {
     process.env.DATABASE_URL = 'postgres://localhost/test';
     process.env.APP_ENV = 'production';
     process.env.JWT_SECRET = 'too-short';
-    process.env.APP_URL = 'https://pulse.example.com';
-    process.env.CORS_ORIGIN = 'https://pulse.example.com';
+    process.env.APP_URL = 'https://trace.example.com';
+    process.env.CORS_ORIGIN = 'https://trace.example.com';
 
     expect(() => loadAndRun()).toThrow('EXIT_1');
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('32 characters'));
@@ -99,8 +99,8 @@ describe('env.js — validateEnv', () => {
     process.env.DATABASE_URL = 'postgres://x:safepassword@localhost/test';
     process.env.APP_ENV = 'production';
     process.env.JWT_SECRET = 'this-is-a-changeme-secret-that-is-long-enough';
-    process.env.APP_URL = 'https://pulse.example.com';
-    process.env.CORS_ORIGIN = 'https://pulse.example.com';
+    process.env.APP_URL = 'https://trace.example.com';
+    process.env.CORS_ORIGIN = 'https://trace.example.com';
 
     expect(() => loadAndRun()).toThrow('EXIT_1');
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('placeholder'));
@@ -112,7 +112,7 @@ describe('env.js — validateEnv', () => {
     process.env.DATABASE_URL = 'postgres://x:safepassword@localhost/test';
     process.env.APP_ENV = 'production';
     process.env.JWT_SECRET = GOOD_SECRET;
-    process.env.APP_URL = 'https://pulse.example.com';
+    process.env.APP_URL = 'https://trace.example.com';
     process.env.CORS_ORIGIN = '*';
 
     expect(() => loadAndRun()).toThrow('EXIT_1');
@@ -125,8 +125,8 @@ describe('env.js — validateEnv', () => {
     process.env.DATABASE_URL = 'postgres://x:safepassword@localhost/test';
     process.env.APP_ENV = 'production';
     process.env.JWT_SECRET = GOOD_SECRET;
-    process.env.APP_URL = 'https://pulse.example.com';
-    process.env.CORS_ORIGIN = 'https://pulse.example.com';
+    process.env.APP_URL = 'https://trace.example.com';
+    process.env.CORS_ORIGIN = 'https://trace.example.com';
     process.env.COOKIE_SECURE = 'false';
 
     expect(() => loadAndRun()).toThrow('EXIT_1');

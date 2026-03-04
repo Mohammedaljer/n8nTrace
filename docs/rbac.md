@@ -1,6 +1,6 @@
 # Roles & Permissions (RBAC)
 
-n8n Pulse uses role-based access control to manage what users can see and do.
+n8n-trace uses role-based access control to manage what users can see and do.
 
 <!-- TOC -->
 

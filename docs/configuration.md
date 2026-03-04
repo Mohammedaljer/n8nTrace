@@ -82,8 +82,8 @@ Two options:
 
 | Variable | Description |
 |----------|-------------|
-| `PULSE_INGEST_USER` | Ingest DB username |
-| `PULSE_INGEST_PASSWORD` | Ingest DB password |
+| `TRACE_INGEST_USER` | Ingest DB username |
+| `TRACE_INGEST_PASSWORD` | Ingest DB password |
 
 The ingest user has least-privilege access to execution tables only.
 
@@ -131,8 +131,8 @@ The ingest user has least-privilege access to execution tables only.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | (required) | `postgres://user:pass@host:5432/db` |
-| `POSTGRES_USER` | `n8n_pulse` | Database user |
-| `POSTGRES_DB` | `n8n_pulse` | Database name |
+| `POSTGRES_USER` | `n8n_trace` | Database user |
+| `POSTGRES_DB` | `n8n_trace` | Database name |
 | `DB_POOL_MAX` | `20` | Connection pool max |
 | `DB_IDLE_TIMEOUT` | `30000` | Idle timeout (ms) |
 | `DB_CONNECT_TIMEOUT` | `5000` | Connect timeout (ms) |
@@ -146,8 +146,8 @@ JWT_SECRET=<min-32-character-secret>
 
 # Production
 APP_ENV=production
-APP_URL=https://pulse.example.com
-CORS_ORIGIN=https://pulse.example.com
+APP_URL=https://trace.example.com
+CORS_ORIGIN=https://trace.example.com
 COOKIE_SECURE=true
 
 # Privacy

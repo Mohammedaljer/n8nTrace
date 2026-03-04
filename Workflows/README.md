@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="../docs/images/n8n-pulse-logo.svg" alt="n8n Pulse" width="100" height="100">
+  <img src="../docs/images/n8n-trace-logo.svg" alt="n8n-trace" width="100" height="100">
 </p>
-<h1 align="center">n8n Pulse Workflows</h1>
+<h1 align="center">n8n-trace Workflows</h1>
 
 <p align="center">
-  <em>This document describes the core workflows used by n8n Pulse</em>
+  <em>This document describes the core workflows used by n8n-trace</em>
 </p>
 
 ---
@@ -78,18 +78,18 @@ Used to power:
 
 ---
 
-## Pulse Execution Collector
+## n8n-trace Execution Collector
 
 **Workflow file:**
 
-[Pulse Execution Collector JSON](./Pulse-Execution-Collector.json)
+[n8n-trace Execution Collector JSON](./n8n-trace-Execution-Collector.json)
 
 **Screenshot:**
-![Execution Collector Workflow](../docs/images/Pulse_Execution_Collector.png)
+![Execution Collector Workflow](../docs/images/n8n-trace_Execution_Collector.png)
 
 ### Purpose
 
-Synchronizes executions and workflow metadata from n8n into the Pulse database using incremental ingestion.
+Synchronizes executions and workflow metadata from n8n into the n8n-trace database using incremental ingestion.
 
 Designed for near real-time observability with minimal database load.
 

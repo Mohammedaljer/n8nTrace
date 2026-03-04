@@ -18,7 +18,7 @@ const TRUST_PROXY = process.env.TRUST_PROXY || 'false'; // default false for dir
 const COOKIE_SECURE = (process.env.COOKIE_SECURE || (IS_DEV ? 'false' : 'true')).toLowerCase() === 'true';
 const COOKIE_SAMESITE = process.env.COOKIE_SAMESITE || 'lax';
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
-const TOKEN_COOKIE = 'n8n_pulse_token';
+const TOKEN_COOKIE = 'n8n_trace_token';
 const TOKEN_EXPIRY_MINUTES = 60;
 const BCRYPT_ROUNDS = 10;
 

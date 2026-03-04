@@ -185,16 +185,16 @@ async function autoInit() {
   }
 
   // 4. Provision least-privilege ingest user for n8n (idempotent)
-  const ingestUser = process.env.PULSE_INGEST_USER;
-  const ingestPass = process.env.PULSE_INGEST_PASSWORD;
+  const ingestUser = process.env.TRACE_INGEST_USER;
+  const ingestPass = process.env.TRACE_INGEST_PASSWORD;
   if (ingestUser && ingestPass) {
     try {
       // Validate ingest username (alphanumeric + underscore only, max 63 chars)
       if (!/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/.test(ingestUser)) {
-        throw new Error('Invalid PULSE_INGEST_USER: must be alphanumeric/underscore, start with letter/underscore, max 63 chars');
+        throw new Error('Invalid TRACE_INGEST_USER: must be alphanumeric/underscore, start with letter/underscore, max 63 chars');
       }
 
-      const dbOwner = process.env.DATABASE_URL.match(/\/\/([^:]+):/)?.[1] || 'n8n_pulse';
+      const dbOwner = process.env.DATABASE_URL.match(/\/\/([^:]+):/)?.[1] || 'n8n_trace';
       // Tables the ingest user can access (SELECT, INSERT, UPDATE - no DELETE)
       const allowedTables = ['executions', 'execution_nodes', 'workflows_index', 'n8n_metrics_snapshot', 'metrics_series', 'metrics_samples'];
       // Protected tables - auth/RBAC/audit (explicit revoke for defense in depth)

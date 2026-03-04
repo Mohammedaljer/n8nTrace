@@ -1,6 +1,6 @@
 # Production Deployment
 
-Deploy n8n Pulse securely in production.
+Deploy n8n-trace securely in production.
 
 <!-- TOC -->
 
@@ -38,7 +38,7 @@ Deploy n8n Pulse securely in production.
 
 - **Application**: Single container — Express.js serves the React SPA and REST API (Google Distroless image, Node.js 22).
 - **Database**: PostgreSQL 17.2 with auto-migrations on startup.
-- **Ingestion**: n8n workflows write directly to PostgreSQL via the `pulse_ingest` DB user. n8n Pulse does not poll n8n.
+- **Ingestion**: n8n workflows write directly to PostgreSQL via the `trace_ingest` DB user. n8n-trace does not poll n8n.
 
 See [Architecture](./architecture.md) for the full request flow, trust model, and security layers.
 
@@ -130,8 +130,8 @@ docker compose -f docker-compose.prod.yml up -d
 POSTGRES_PASSWORD=<generated>
 JWT_SECRET=<generated-32-chars>
 APP_ENV=production
-APP_URL=https://pulse.example.com
-CORS_ORIGIN=https://pulse.example.com
+APP_URL=https://trace.example.com
+CORS_ORIGIN=https://trace.example.com
 COOKIE_SECURE=true
 ```
 
@@ -141,12 +141,12 @@ COOKIE_SECURE=true
 
 ## Reverse Proxy Integration
 
-n8n Pulse listens on port 8001 inside the container (published as 8899 by default). You can expose it directly or place your own reverse proxy in front for TLS termination.
+n8n-trace listens on port 8001 inside the container (published as 8899 by default). You can expose it directly or place your own reverse proxy in front for TLS termination.
 
 ### Direct Access (Default)
 
 ```
-Client ──▶ n8n Pulse (:8899)
+Client ──▶ n8n-trace (:8899)
 ```
 
 No proxy needed. `TRUST_PROXY=false` (default).
@@ -154,7 +154,7 @@ No proxy needed. `TRUST_PROXY=false` (default).
 ### Behind a Reverse Proxy (TLS Termination)
 
 ```
-Client ──▶ Traefik / Caddy / NGINX / ALB ──▶ n8n Pulse (:8899)
+Client ──▶ Traefik / Caddy / NGINX / ALB ──▶ n8n-trace (:8899)
 ```
 
 Set `TRUST_PROXY=1` so Express reads the real client IP from the proxy's `X-Forwarded-For` header.
@@ -164,7 +164,7 @@ Set `TRUST_PROXY=1` so Express reads the real client IP from the proxy's `X-Forw
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name pulse.example.com;
+    server_name trace.example.com;
 
     ssl_certificate /path/to/fullchain.pem;
     ssl_certificate_key /path/to/privkey.pem;
@@ -183,15 +183,15 @@ server {
 
 ```yaml
 labels:
-  - "traefik.enable=true"
-  - "traefik.http.routers.pulse.rule=Host(`pulse.example.com`)"
-  - "traefik.http.routers.pulse.tls.certresolver=letsencrypt"
+    - "traefik.enable=true"
+    - "traefik.http.routers.trace.rule=Host(`trace.example.com`)"
+    - "traefik.http.routers.trace.tls.certresolver=letsencrypt"
 ```
 
 #### Caddy
 
 ```
-pulse.example.com {
+trace.example.com {
     reverse_proxy localhost:8899
 }
 ```
@@ -199,7 +199,7 @@ pulse.example.com {
 ### Behind a CDN + Proxy
 
 ```
-Client ──▶ Cloudflare ──▶ ALB ──▶ n8n Pulse (:8899)
+Client ──▶ Cloudflare ──▶ ALB ──▶ n8n-trace (:8899)
 ```
 
 Set `TRUST_PROXY=2` (two trusted hops).
@@ -303,17 +303,17 @@ LIMIT ?
 ### Backup
 
 ```bash
-docker exec n8n_pulse_postgres pg_dump -U n8n_pulse n8n_pulse > backup.sql
+docker exec n8n_trace_postgres pg_dump -U n8n_trace n8n_trace > backup.sql
 ```
 
 ### Restore
 
 ```bash
-docker exec -i n8n_pulse_postgres psql -U n8n_pulse n8n_pulse < backup.sql
+docker exec -i n8n_trace_postgres psql -U n8n_trace n8n_trace < backup.sql
 ```
 
 ### Automated
 
 ```bash
-0 2 * * * docker exec n8n_pulse_postgres pg_dump -U n8n_pulse n8n_pulse | gzip > /backups/pulse_$(date +\%Y\%m\%d).sql.gz
+0 2 * * * docker exec n8n_trace_postgres pg_dump -U n8n_trace n8n_trace | gzip > /backups/n8n_trace_$(date +\%Y\%m\%d).sql.gz
 ```

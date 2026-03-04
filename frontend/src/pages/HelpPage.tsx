@@ -123,7 +123,7 @@ export default function HelpPage() {
       <Card>
         <CardHeader className="flex flex-row items-center gap-3 pb-2">
           <Info className="h-5 w-5 text-primary" />
-          <CardTitle className="text-base">About n8n Pulse</CardTitle>
+          <CardTitle className="text-base">About n8n-trace</CardTitle>
         </CardHeader>
         <CardContent className="text-sm space-y-1">
           <p>

@@ -36,7 +36,7 @@ describe('CSRF Origin/Referer Check', () => {
     let app;
 
     beforeAll(() => {
-      app = buildCsrfApp('https://pulse.example.com');
+      app = buildCsrfApp('https://trace.example.com');
     });
 
     test('allows GET requests without Origin header', async () => {
@@ -70,7 +70,7 @@ describe('CSRF Origin/Referer Check', () => {
     test('allows POST with matching Origin header', async () => {
       const res = await request(app)
         .post('/api/test')
-        .set('Origin', 'https://pulse.example.com')
+        .set('Origin', 'https://trace.example.com')
         .send({ foo: 1 });
       expect(res.status).toBe(200);
     });
@@ -86,7 +86,7 @@ describe('CSRF Origin/Referer Check', () => {
     test('allows POST with matching Referer header (no Origin)', async () => {
       const res = await request(app)
         .post('/api/test')
-        .set('Referer', 'https://pulse.example.com/dashboard')
+        .set('Referer', 'https://trace.example.com/dashboard')
         .send({});
       expect(res.status).toBe(200);
     });

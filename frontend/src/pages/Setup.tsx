@@ -101,10 +101,10 @@ export default function SetupPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center mb-2">
-            <img src="/n8n_Pulse.svg" alt="n8n Pulse" className="h-16 w-16" />
+            <img src="/n8n-trace.svg" alt="n8n-trace" className="h-16 w-16" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-            n8n Pulse
+            n8n-trace
           </h1>
           <p className="text-muted-foreground text-sm">
             First-run setup — create the initial administrator

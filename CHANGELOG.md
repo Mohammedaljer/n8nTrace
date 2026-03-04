@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to n8n Pulse will be documented in this file.
+All notable changes to n8n-trace will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0] - Unreleased
 
 ### Breaking Changes
-- **Single container architecture** — merged `n8n_pulse_backend` + `n8n_pulse_frontend` into one unified image (`mohammedaljer/n8n_pulse:v2.0.0`); separate per-service images are removed
-- **Container renamed** — `n8n_pulse_backend` + `n8n_pulse_frontend` → single `n8n_pulse_app`; the `frontend` compose service is removed
+- **Single container architecture** — merged `n8n-trace-backend` + `n8n-trace-frontend` into one unified image (`mohammedaljer/n8n-trace:v2.0.0`); separate per-service images are removed
+- **Container renamed** — `n8n-trace-backend` + `n8n-trace-frontend` → single `n8n_trace_app`; the `frontend` compose service is removed
 - **Port mapping changed** — host port now maps to container port `8001` (was `80` via nginx)
 - **`TRUST_PROXY` default changed** — `1` → `false`; set to `1` when behind a reverse proxy
 - **`COOKIE_SECURE` default changed** — `false` → `true`; set to `false` only for plain HTTP dev
@@ -116,19 +116,19 @@ Tags the same commit as v1.4.0 (`ded38c4`). Published to align Docker Hub image 
   - `src/utils/` — `sql.js`
 - Postgres image upgraded from `16-alpine` to `17-alpine` in `docker-compose.prod.yml`
 - Docker Compose image tags bumped from `v1.3.0` to `v1.3.2`
-- Repository links updated to `n8nPulse` across documentation and frontend footer
+- Repository links updated to `n8n-trace` across documentation and frontend footer
 
 ### Added
 - `.env.example` — comprehensive environment variable template with inline documentation
 - `Workflows/` directory with n8n workflow JSON files:
-  - `Pulse-Execution-Collector.json` — execution data ingestion workflow
+  - `n8n-trace-Execution-Collector.json` — execution data ingestion workflow
   - `metrics-snapshot.json` — instance metrics collection workflow
   - `Workflows/README.md` — setup and configuration guide
 - Documentation updates: expanded backend API reference, deployment and troubleshooting sections
 
 ### Fixed
 - Repository directory name in getting-started guide
-- Image path for n8n Pulse logo in README
+- Image path for n8n-trace logo in README
 
 ---
 
@@ -148,7 +148,7 @@ Tags the same commit as v1.4.0 (`ded38c4`). Published to align Docker Hub image 
 ## [1.3.1] - 2026-02-16
 
 ### Added
-- Initial public release of n8n Pulse
+- Initial public release of n8n-trace
 - **Backend** — Express.js REST API with JWT authentication (HttpOnly/Secure/SameSite cookies), PostgreSQL database, auto-applied migrations (`node-pg-migrate`), RBAC (Admin / Analyst / Viewer), audit logging, data retention with scheduled cleanup, rate limiting, CSRF protection, health/readiness endpoints
 - **Frontend** — React 18 SPA with TypeScript, Vite, Tailwind CSS, shadcn/ui, Recharts; execution analytics dashboard, instance monitoring, workflow views, admin pages (users, groups, audit log), dark/light theme
 - **Docker** — separate `backend/Dockerfile` and `frontend/Dockerfile` (Node.js + nginx), `docker-compose.prod.yml` with PostgreSQL

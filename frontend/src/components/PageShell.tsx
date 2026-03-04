@@ -11,8 +11,8 @@ interface PageShellProps {
 export function PageShell({ title, description, headerActions, children }: PageShellProps) {
   useEffect(() => {
     const text = typeof title === "string" ? title : "";
-    if (text) document.title = `n8n Pulse - ${text}`;
-    return () => { document.title = "n8n Pulse"; };
+    if (text) document.title = `n8n-trace - ${text}`;
+    return () => { document.title = "n8n-trace"; };
   }, [title]);
   return (
     <div className="flex flex-col gap-6 p-6 lg:p-8">

@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-n8n Pulse frontend is a React SPA with TypeScript, providing dashboards and admin interfaces. In production, the built SPA is served by the Express backend as static files.
+n8n-trace frontend is a React SPA with TypeScript, providing dashboards and admin interfaces. In production, the built SPA is served by the Express backend as static files.
 
 ## Technology Stack
 
@@ -177,7 +177,7 @@ The frontend is built during the unified Docker image build (3-stage Dockerfile 
 
 ```bash
 # Build the unified image (from repo root)
-docker build -t n8n_pulse:local .
+docker build -t n8n_trace:local .
 ```
 
 The Vite build output (`dist/`) is copied to `/app/public` inside the container. Express serves these files with appropriate cache headers:
