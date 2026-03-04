@@ -15,7 +15,7 @@
 
 <p align="center">
   <a href="https://github.com/Mohammedaljer/n8nTrace/releases">
-    <img src="https://img.shields.io/github/v/release/Mohammedaljer/n8nTrace?style=flat&logo=github" alt="Release">
+    <img src="https://img.shields.io/github/v/release/Mohammedaljer/n8n-trace?style=flat&logo=github" alt="Release">
   </a>
   <a href="https://hub.docker.com/r/mohammedaljer/n8n-trace">
     <img src="https://img.shields.io/docker/pulls/mohammedaljer/n8n-trace?style=flat&logo=docker" alt="Docker Pulls">

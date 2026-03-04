@@ -3,51 +3,54 @@
 <!-- TOC -->
 
 - [Security Guide](#security-guide)
-    - [Secrets Management](#secrets-management)
-        - [Never Commit](#never-commit)
-        - [Runtime Injection](#runtime-injection)
-    - [Startup Enforcement Fail-fast](#startup-enforcement-fail-fast)
-    - [Content Security Policy CSP](#content-security-policy-csp)
-        - [Directives](#directives)
-        - [Configuration](#configuration)
-    - [Account Lockout](#account-lockout)
-        - [How It Works](#how-it-works)
-        - [Configuration](#configuration)
-        - [Security Details](#security-details)
-    - [Password Policy](#password-policy)
-        - [Rules](#rules)
-        - [Configuration](#configuration)
-        - [Denylist Examples](#denylist-examples)
-    - [Session Revocation](#session-revocation)
-        - [How It Works](#how-it-works)
-        - [User Self-Service](#user-self-service)
-        - [Admin Revocation](#admin-revocation)
-    - [Audit Logging](#audit-logging)
-        - [IP Modes](#ip-modes)
-    - [TRUST_PROXY Setting](#trust_proxy-setting)
-        - [Default: TRUST_PROXY=false](#default-trust_proxyfalse)
-        - [Behind a Reverse Proxy: TRUST_PROXY=1](#behind-a-reverse-proxy-trust_proxy1)
-        - [When to Change](#when-to-change)
-    - [Cookie Security](#cookie-security)
-    - [CSRF Protection](#csrf-protection)
-        - [How It Works](#how-it-works)
-        - [Defense in Depth](#defense-in-depth)
-    - [Database Security](#database-security)
-        - [Ingest User Least Privilege](#ingest-user-least-privilege)
-        - [Network Isolation](#network-isolation)
-    - [Rate Limiting](#rate-limiting)
-        - [Body Size Limit](#body-size-limit)
-    - [Response when exceeded: HTTP 413 Payload Too Large.](#response-when-exceeded-http-413-payload-too-large)
-    - [Production Security Checklist](#production-security-checklist)
-        - [Required Enforced](#required-enforced)
-        - [Required Manual](#required-manual)
-        - [Recommended](#recommended)
-    - [Security Assessment](#security-assessment)
-        - [Authentication & Sessions](#authentication--sessions)
-        - [Brute Force & Password Protection](#brute-force--password-protection)
-        - [HTTP Security](#http-security)
-        - [Data Protection](#data-protection)
-        - [Infrastructure](#infrastructure)
+  - [Secrets Management](#secrets-management)
+    - [Never Commit](#never-commit)
+    - [Runtime Injection](#runtime-injection)
+  - [Startup Enforcement (Fail-fast)](#startup-enforcement-fail-fast)
+  - [Content Security Policy (CSP)](#content-security-policy-csp)
+    - [Directives](#directives)
+    - [Configuration](#configuration)
+  - [Account Lockout](#account-lockout)
+    - [How It Works](#how-it-works)
+    - [Configuration](#configuration-1)
+    - [Security Details](#security-details)
+  - [Password Policy](#password-policy)
+    - [Rules](#rules)
+    - [Configuration](#configuration-2)
+    - [Denylist Examples](#denylist-examples)
+  - [Session Revocation](#session-revocation)
+    - [How It Works](#how-it-works-1)
+    - [User Self-Service](#user-self-service)
+    - [Admin Revocation](#admin-revocation)
+  - [Audit Logging](#audit-logging)
+    - [IP Modes](#ip-modes)
+  - [TRUST\_PROXY Setting](#trust_proxy-setting)
+    - [Default: `TRUST_PROXY=false`](#default-trust_proxyfalse)
+    - [Behind a Reverse Proxy: `TRUST_PROXY=1`](#behind-a-reverse-proxy-trust_proxy1)
+    - [When to Change](#when-to-change)
+  - [Cookie Security](#cookie-security)
+  - [CSRF Protection](#csrf-protection)
+    - [How It Works](#how-it-works-2)
+    - [Defense in Depth](#defense-in-depth)
+  - [Database Security](#database-security)
+    - [Ingest User (Least Privilege)](#ingest-user-least-privilege)
+    - [Network Isolation](#network-isolation)
+  - [Rate Limiting](#rate-limiting)
+    - [Body Size Limit](#body-size-limit)
+  - [**Response when exceeded**: HTTP `413 Payload Too Large`.](#response-when-exceeded-http-413-payload-too-large)
+  - [Production Security Checklist](#production-security-checklist)
+    - [Required (Enforced)](#required-enforced)
+    - [Required (Manual)](#required-manual)
+    - [Recommended](#recommended)
+  - [Security Assessment](#security-assessment)
+    - [Authentication \& Sessions](#authentication--sessions)
+    - [Brute Force \& Password Protection](#brute-force--password-protection)
+    - [HTTP Security](#http-security)
+    - [Data Protection](#data-protection)
+    - [Infrastructure](#infrastructure)
+  - [Reporting a Vulnerability](#reporting-a-vulnerability)
+    - [What to include](#what-to-include)
+  - [Please do not](#please-do-not)
 
 <!-- /TOC -->
 
@@ -406,3 +409,25 @@ n8n-trace includes the following defense-in-depth measures:
 - Gzip compression via `compression` middleware
 
 **Production-ready** when configured with HTTPS, correct proxy trust, and strong secrets.
+
+---
+
+## Reporting a Vulnerability
+
+If you discover a security vulnerability, **do not open a public GitHub issue**.
+
+Please report it privately via GitHub:
+1. Go to this repository on GitHub
+2. Open the **Security** tab
+3. Click **Advisories**
+4. Click **Report a vulnerability**
+
+### What to include
+- Impact (what an attacker can do)
+- Steps to reproduce (minimal PoC)
+- Affected version / Docker tag
+- Any relevant logs (remove secrets)
+
+## Please do not
+- Post exploitation details publicly before a fix is released
+- Include real secrets in reports
