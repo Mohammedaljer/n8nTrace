@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.0.0] - Unreleased
+## [2.0.0] - 2026-03-04
 
 ### Breaking Changes
 - **Single container architecture** — merged `n8n-trace-backend` + `n8n-trace-frontend` into one unified image (`mohammedaljer/n8n-trace:v2.0.0`); separate per-service images are removed

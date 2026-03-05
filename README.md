@@ -64,10 +64,12 @@ n8n-trace runs as a **single hardened Docker container** alongside PostgreSQL. I
 
 ## Who is this for?
 
-- **Teams self-hosting n8n** who need visibility into what their workflows are doing
-- **Platform engineers** managing multiple n8n instances (prod, staging, dev) from one place
-- **Security-conscious organizations** that require audit logging, RBAC, and GDPR-compliant data handling
-- **Anyone** who wants execution analytics without depending on n8n's built-in UI
+- **Teams self-hosting n8n** who need centralized visibility into what their workflows are doing.
+- **Platform engineers** managing multiple n8n instances (prod, staging, dev) from a single unified dashboard.
+- **Cross-functional Teams (e.g., Management, QA):** Departments that need to track workflow successes and failures without being exposed to sensitive payload data or underlying configurations.
+- **Security-conscious organizations** that require audit logging, RBAC, and strict data privacy. n8n-trace intentionally excludes workflow payloads and raw error logs, ensuring GDPR compliance by design.
+- **Anyone** who wants execution analytics without depending on n8n's built-in UI or paying for Enterprise roles just to get a "Viewer" access.
+
 
 ---
 
@@ -82,8 +84,11 @@ n8n-trace **complements** n8n's built-in UI with enterprise observability featur
 | **Advanced RBAC (workflow scoping)** | Limited | ✅ Full |
 | **Audit logging** | ❌ | ✅ |
 | **Prometheus explorer** | ❌ | ✅ *(optional)* |
+| **Viewer Role Access** | ❌ Enterprise only (sees payload) | ✅ Included (metadata only) |
+| **Payload Privacy** | Execution logs expose sensitive data | ✅ 100% blind to payload & secrets |
 
 **n8n-trace is your dedicated observability layer** — it works alongside n8n without replacing the workflow editor.
+
 
 ---
 
@@ -190,7 +195,7 @@ See the [Architecture Guide](./docs/architecture.md) for the full request flow, 
 
 ## Security
 
-n8n Pulse is designed for production self-hosting with defense-in-depth:
+n8n Trace is designed for production self-hosting with defense-in-depth:
 
 | Layer | Implementation |
 |-------|---------------|
@@ -206,7 +211,7 @@ n8n Pulse is designed for production self-hosting with defense-in-depth:
 | 🚦 **Startup** | Fail-fast checks reject insecure configs in production |
 
 > [!WARNING]
-> In production, always set `COOKIE_SECURE=true`, use HTTPS, and ensure `CORS_ORIGIN` is an exact URL (not `*`). Pulse enforces this — it will refuse to start with insecure settings.
+> In production, always set `COOKIE_SECURE=true`, use HTTPS, and ensure `CORS_ORIGIN` is an exact URL (not `*`). Trace enforces this — it will refuse to start with insecure settings.
 
 See the full [Security Guide](./docs/security.md).
 
@@ -222,11 +227,11 @@ See the full [Security Guide](./docs/security.md).
 ```yaml
 services:
   app:
-    image: mohammedaljer/n8n_pulse:v2.0.0
+    image: mohammedaljer/n8n_Trace:v2.0.0
 ```
 
 > [!NOTE]
-> **Upgrading from v1.x?** The separate `n8n_pulse_backend` and `n8n_pulse_frontend` images are deprecated. Use the single unified image `mohammedaljer/n8n_pulse:v2.0.0`. See the [Deployment Guide](./docs/deployment.md).
+> **Upgrading from v1.x?** The separate `n8n_Trace_backend` and `n8n_Trace_frontend` images are deprecated. Use the single unified image `mohammedaljer/n8n_Trace:v2.0.0`. See the [Deployment Guide](./docs/deployment.md).
 
 ---
 
@@ -302,20 +307,20 @@ The `/health` and `/ready` endpoints require no authentication — use them for 
 Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
 <p align="center">
-  <a href="https://github.com/Mohammedaljer/n8nPulse/fork">
+  <a href="https://github.com/Mohammedaljer/n8nTrace/fork">
     <img src="https://img.shields.io/badge/Fork-FF5722?style=for-the-badge&logo=github" alt="Fork">
   </a>
   &nbsp;
-  <a href="https://github.com/Mohammedaljer/n8nPulse/issues/new/choose">
+  <a href="https://github.com/Mohammedaljer/n8nTrace/issues/new/choose">
     <img src="https://img.shields.io/badge/Open%20Issue-007ACC?style=for-the-badge&logo=github" alt="Open Issue">
   </a>
   &nbsp;
-  <a href="https://github.com/Mohammedaljer/n8nPulse/pulls">
+  <a href="https://github.com/Mohammedaljer/n8nTrace/pulls">
     <img src="https://img.shields.io/badge/PRs%20Welcome-00D084?style=for-the-badge&logo=github" alt="PRs Welcome">
   </a>
   &nbsp;
-  <a href="https://github.com/Mohammedaljer/n8nPulse/stargazers">
-    <img src="https://img.shields.io/github/stars/Mohammedaljer/n8nPulse?style=for-the-badge&logo=github" alt="Stars">
+  <a href="https://github.com/Mohammedaljer/n8nTrace/stargazers">
+    <img src="https://img.shields.io/github/stars/Mohammedaljer/n8nTrace?style=for-the-badge&logo=github" alt="Stars">
   </a>
 </p>
 
@@ -327,4 +332,9 @@ Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelin
 
 ---
 
-<p align="center"> <em>Built for n8n community • <strong>Unofficial project, not affiliated with n8n GmbH</strong></em> </p>
+
+
+<p align="center"> 
+  <em>Built for n8n community • <strong>Unofficial project, not affiliated with n8n GmbH</strong></em><br>
+  <span style="font-size: 0.9em; color: gray;">Brought to life with the assistance of modern AI coding tools.</span>
+</p>
