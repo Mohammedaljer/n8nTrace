@@ -21,7 +21,7 @@
     <img src="https://img.shields.io/docker/pulls/mohammedaljer/n8n-trace?style=flat&logo=docker" alt="Docker Pulls">
   </a>
   <a href="https://github.com/Mohammedaljer/n8nTrace/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Mohammedaljer/n8nTrace?style=flat" alt="License: MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
   </a>
   <a href="https://nodejs.org/">
     <img src="https://img.shields.io/badge/node-22+-brightgreen.svg" alt="Node 22+">
@@ -310,17 +310,14 @@ Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelin
   <a href="https://github.com/Mohammedaljer/n8nTrace/fork">
     <img src="https://img.shields.io/badge/Fork-FF5722?style=for-the-badge&logo=github" alt="Fork">
   </a>
-  &nbsp;
   <a href="https://github.com/Mohammedaljer/n8nTrace/issues/new/choose">
     <img src="https://img.shields.io/badge/Open%20Issue-007ACC?style=for-the-badge&logo=github" alt="Open Issue">
   </a>
-  &nbsp;
   <a href="https://github.com/Mohammedaljer/n8nTrace/pulls">
     <img src="https://img.shields.io/badge/PRs%20Welcome-00D084?style=for-the-badge&logo=github" alt="PRs Welcome">
   </a>
-  &nbsp;
   <a href="https://github.com/Mohammedaljer/n8nTrace/stargazers">
-    <img src="https://img.shields.io/github/stars/Mohammedaljer/n8nTrace?style=social" alt="Stars">
+    <img src="https://img.shields.io/github/stars/Mohammedaljer/n8nTrace.svg?style=for-the-badge&logo=github" alt="Stars">
   </a>
 </p>
 
