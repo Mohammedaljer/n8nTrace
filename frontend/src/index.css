@@ -212,6 +212,11 @@
     @apply transition-colors hover:bg-muted/50;
   }
 
+  /* Skeleton loading animation */
+  .animate-skeleton {
+    animation: skeleton-fade 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
   /* Status indicators */
   .status-success {
     @apply text-success;
@@ -234,6 +239,13 @@
   /* Subtle glass effect */
   .glass {
     @apply backdrop-blur-sm bg-card/80;
+  }
+
+}
+
+@keyframes skeleton-fade {
+  50% {
+    opacity: 0.5;
   }
 }
 

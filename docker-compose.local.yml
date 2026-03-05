@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:17.2-alpine
+    container_name: n8n_trace_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: n8n_trace
+      POSTGRES_USER: n8n_trace
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8n_trace -d n8n_trace"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      internal:
+        aliases: [postgres, n8n_trace_postgres]
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mohammedaljer/n8n-trace:local
+    container_name: n8n_trace_app
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8899}:8001"
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: postgres://n8n_trace:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/n8n_trace
+      PORT: "8001"
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      APP_URL: ${APP_URL:-http://localhost:8899}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8899}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      LOG_FORMAT: json
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      METRICS_MAX_TIME_RANGE_DAYS: ${METRICS_MAX_TIME_RANGE_DAYS:-30}
+      METRICS_MAX_DATAPOINTS: ${METRICS_MAX_DATAPOINTS:-1000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      internal:
+        aliases: [backend, n8n_trace_app]
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:8001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  postgres_data:

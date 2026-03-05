@@ -16,13 +16,6 @@ export function formatDateTimeForFilter(date: Date): string {
 }
 
 /**
- * Format date as ISO date string (YYYY-MM-DD)
- */
-export function formatDateForFilter(date: Date): string {
-  return format(date, "yyyy-MM-dd");
-}
-
-/**
  * Get the start and end of today in local time
  * 'from' is start of today (00:00), 'to' is current time (now)
  */
@@ -80,13 +73,6 @@ export const DATE_PRESETS: DatePreset[] = [
     getRange: () => getLastNDaysRange(30),
   },
 ];
-
-/**
- * Get default date range (Today)
- */
-export function getDefaultDateRange(): { from: string; to: string } {
-  return getTodayRange();
-}
 
 /**
  * Detect which preset matches the current date range (if any)

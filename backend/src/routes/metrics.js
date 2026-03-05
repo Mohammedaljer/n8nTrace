@@ -1,5 +1,6 @@
 const express = require('express');
-const { METRICS_ENABLED, METRICS_MAX_TIME_RANGE_DAYS, METRICS_MAX_DATAPOINTS } = require('../config');
+const { METRICS_ENABLED, METRICS_MAX_DATAPOINTS, METRICS_MAX_TIME_RANGE_DAYS } = require('../config');
+const { parseAndClampTimeRange } = require('../utils/timeRange');
 const metricsExplorerService = require('../services/metricsExplorer');
 
 function createMetricsRouter(deps) {
@@ -34,24 +35,6 @@ function validateTimestamp(timestamp) {
   if (!timestamp) return true; // Optional
   const date = new Date(timestamp);
   return !isNaN(date.getTime());
-}
-
-function parseAndClampTimeRange(from, to) {
-  const now = new Date();
-  let fromDate = from ? new Date(from) : new Date(now.getTime() - 24 * 60 * 60 * 1000); // Default: last 24h
-  let toDate = to ? new Date(to) : now;
-  
-  // Ensure dates are valid
-  if (isNaN(fromDate.getTime())) fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  if (isNaN(toDate.getTime())) toDate = now;
-  
-  // Clamp range to max allowed days
-  const maxMs = METRICS_MAX_TIME_RANGE_DAYS * 24 * 60 * 60 * 1000;
-  if (toDate - fromDate > maxMs) {
-    fromDate = new Date(toDate.getTime() - maxMs);
-  }
-  
-  return { fromDate, toDate };
 }
 
 /**
@@ -239,7 +222,8 @@ router.post('/api/metrics/query', requireAuth, metricsLimiter, attachAuthz, asyn
     to,
     view = 'auto',
     groupByLabel = null,
-    filters = {}
+    filters = {},
+    aggregation = 'avg'
   } = req.body;
 
   // Validate instanceId
@@ -300,7 +284,8 @@ router.post('/api/metrics/query', requireAuth, metricsLimiter, attachAuthz, asyn
       to,
       view,
       groupByLabel,
-      filters
+      filters,
+      aggregation
     });
 
     res.json(result);

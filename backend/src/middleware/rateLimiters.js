@@ -19,7 +19,6 @@ function createRateLimiter(windowMs, max) {
   });
 }
 
-const authLimiter = createRateLimiter(60 * 1000, 20);
 const sensitiveAuthLimiter = createRateLimiter(15 * 60 * 1000, 5);
 const adminCreateLimiter = createRateLimiter(60 * 1000, 10);
 const setupLimiter = createRateLimiter(15 * 60 * 1000, 5); // same as sensitive auth
@@ -33,14 +32,16 @@ const loginLimiter = createRateLimiter(15 * 60 * 1000, loginLimitMax);
 // Admin API rate limiter: 100 requests per minute per IP
 const adminApiLimiter = createRateLimiter(60 * 1000, 100);
 
+// Auth session limiter (logout, etc.): 30 requests per minute per IP
+const authSessionLimiter = createRateLimiter(60 * 1000, 30);
+
 module.exports = {
   getStableIp,
-  createRateLimiter,
-  authLimiter,
   sensitiveAuthLimiter,
   adminCreateLimiter,
   setupLimiter,
   metricsLimiter,
   loginLimiter,
   adminApiLimiter,
+  authSessionLimiter,
 };

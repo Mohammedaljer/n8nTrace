@@ -49,7 +49,7 @@ export class CsvDataSource implements DataSource {
     let skippedWorkflows = 0;
 
     // Load executions
-    let executions: Execution[] = [];
+    const executions: Execution[] = [];
     try {
       const rawExecutions = await fetchAndParseCsv<Record<string, unknown>>(EXECUTIONS_PATH);
       
@@ -87,7 +87,7 @@ export class CsvDataSource implements DataSource {
     }
 
     // Load execution nodes
-    let nodeRuns: ExecutionNode[] = [];
+    const nodeRuns: ExecutionNode[] = [];
     try {
       const rawNodes = await fetchAndParseCsv<Record<string, unknown>>(NODES_PATH);
       
@@ -124,7 +124,7 @@ export class CsvDataSource implements DataSource {
     }
 
     // Load workflows
-    let workflows: Workflow[] = [];
+    const workflows: Workflow[] = [];
     try {
       const rawWorkflows = await fetchAndParseCsv<Record<string, unknown>>(WORKFLOWS_PATH);
       for (let i = 0; i < rawWorkflows.length; i++) {

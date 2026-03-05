@@ -2,24 +2,28 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
+const compression = require('compression');
+const path = require('path');
 
 const {
   TRUST_PROXY,
   LOG_FORMAT,
   CORS_ORIGIN,
+  CSP_REPORT_ONLY,
+  CSP_REPORT_URI,
 } = require('./config');
 
 const { csrfOriginRefererCheck } = require('./middleware/csrf');
 
 const {
   getStableIp,
-  authLimiter,
   sensitiveAuthLimiter,
   adminCreateLimiter,
   setupLimiter,
   metricsLimiter,
   loginLimiter,
   adminApiLimiter,
+  authSessionLimiter,
 } = require('./middleware/rateLimiters');
 
 const {
@@ -56,7 +60,40 @@ function createApp({ pool, state }) {
     console.log(`Proxy trust enabled: ${trustValue}`);
   }
 
-  app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+  // ---------------------------------------------------------------------------
+  // Content Security Policy (CSP) via Helmet
+  // Applies to BOTH API responses and served SPA static files (index.html, JS, CSS).
+  // ---------------------------------------------------------------------------
+  const cspDirectives = {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'"],
+    styleSrc: ["'self'", "'unsafe-inline'"],   // Required by Tailwind / shadcn runtime styles
+    imgSrc: ["'self'", 'data:'],               // data: URIs for inline SVGs/icons
+    fontSrc: ["'self'"],
+    connectSrc: ["'self'"],                    // SPA fetch calls to /api/* on same origin
+    frameSrc: ["'none'"],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"],
+    frameAncestors: ["'none'"],                // Clickjacking protection
+    upgradeInsecureRequests: [],
+  };
+
+  // Optional: CSP violation report endpoint
+  if (CSP_REPORT_URI) {
+    cspDirectives.reportUri = CSP_REPORT_URI;
+  }
+
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: cspDirectives,
+      reportOnly: CSP_REPORT_ONLY,
+    },
+    crossOriginEmbedderPolicy: false,          // Disabled — not needed for same-origin SPA
+  }));
+
+  // Gzip/Brotli compression for all responses
+  app.use(compression());
 
   if (LOG_FORMAT === 'json') {
     app.use((req, res, next) => {
@@ -94,13 +131,13 @@ function createApp({ pool, state }) {
     getStableIp,
 
     // limiters
-    authLimiter,
     sensitiveAuthLimiter,
     adminCreateLimiter,
     setupLimiter,
     metricsLimiter,
     loginLimiter,
     adminApiLimiter,
+    authSessionLimiter,
 
     // auth/token
     signToken,
@@ -135,6 +172,35 @@ function createApp({ pool, state }) {
   app.use(createDataRouter(deps));
   app.use(createAdminRouter(deps));
   app.use(createMetricsRouter(deps));
+
+  // =========================================================================
+  // Static frontend serving (React SPA)
+  // =========================================================================
+  const publicDir = path.join(__dirname, '..', 'public');
+
+  // Hashed Vite assets — immutable, cache forever
+  app.use('/assets', express.static(path.join(publicDir, 'assets'), {
+    maxAge: '1y',
+    immutable: true,
+  }));
+
+  // Other static files (favicon, robots.txt, etc.)
+  app.use(express.static(publicDir, {
+    maxAge: '1h',
+    index: false, // Don't auto-serve index.html (SPA fallback handles it)
+  }));
+
+  // SPA fallback — any unmatched GET returns index.html
+  // POST/PUT/DELETE to unknown paths correctly 404.
+  app.get('{*path}', (req, res, next) => {
+    // Don't serve index.html for API-like paths that weren't matched by routes
+    if (req.path.startsWith('/api/')) return next();
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.sendFile(path.join(publicDir, 'index.html'), (err) => {
+      if (err) next(err);
+    });
+  });
 
   // ERROR HANDLER (unchanged)
   app.use((err, req, res, next) => {

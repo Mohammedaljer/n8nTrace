@@ -49,7 +49,27 @@ import { MetricsKpiCards } from "@/components/widgets/MetricsKpiCards";
 import { MetricsChartsGrid } from "@/components/widgets/MetricsCharts";
 import { MetricsExplorer } from "@/components/widgets/MetricsExplorer";
 import { useMetrics } from "@/data/MetricsContext";
-import { Activity } from "lucide-react";
+import { Activity, Info } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+
+/** Shared placeholder shown when no single instance is selected */
+function SelectInstancePrompt({ title }: { title: string }) {
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+          <Info className="h-10 w-10 text-muted-foreground/30" />
+          <div>
+            <p className="text-sm font-medium">Select a single instance to view {title.toLowerCase()}</p>
+            <p className="text-sm text-muted-foreground">
+              Use the Instance dropdown above to choose an instance
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 // Widget wrapper components that consume context
 function KpiCardsWidget(_props: { size: WidgetSize }) {
@@ -101,7 +121,12 @@ function FailedExecutionsWidget({ size }: { size: WidgetSize }) {
 // Metrics widget wrappers - these use the MetricsProvider from MetricsSection
 function InstanceMetricsWidget(_props: { size: WidgetSize }) {
   const { selectedInstanceId } = useMetrics();
-  
+
+  // No specific instance selected — prompt instead of showing "Restricted"
+  if (!selectedInstanceId || selectedInstanceId === 'all') {
+    return <SelectInstancePrompt title="metrics" />;
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -109,11 +134,9 @@ function InstanceMetricsWidget(_props: { size: WidgetSize }) {
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Activity className="h-5 w-5" />
           Instance Metrics
-          {selectedInstanceId && selectedInstanceId !== 'all' && (
-            <span className="text-sm font-normal text-muted-foreground">
-              ({selectedInstanceId})
-            </span>
-          )}
+          <span className="text-sm font-normal text-muted-foreground">
+            ({selectedInstanceId})
+          </span>
         </h3>
       </div>
       <MetricsKpiCards loading={false} />
@@ -122,6 +145,12 @@ function InstanceMetricsWidget(_props: { size: WidgetSize }) {
 }
 
 function InstanceMetricsChartsWidget(_props: { size: WidgetSize }) {
+  const { selectedInstanceId } = useMetrics();
+
+  if (!selectedInstanceId || selectedInstanceId === 'all') {
+    return <SelectInstancePrompt title="instance metrics over time" />;
+  }
+
   return <MetricsChartsGrid loading={false} />;
 }
 

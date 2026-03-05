@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { BCRYPT_ROUNDS } = require('../config');
+const { validatePasswordStrength } = require('../utils/password');
 
 function createSetupRouter(deps) {
   const {
@@ -27,14 +28,8 @@ router.get('/api/setup/status', async (req, res) => {
   }
 });
 
-const WEAK_PASSWORDS = new Set(['password', 'password123', 'admin', '12345678', '1234567890', 'qwerty', 'letmein', 'welcome', 'monkey', 'abc123', 'admin123', 'changeme', 'secret']);
 function isValidEmail(s) {
   return typeof s === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim()) && s.trim().length <= 255;
-}
-function isPasswordStrongEnough(pwd) {
-  if (typeof pwd !== 'string' || pwd.length < 8) return false;
-  if (WEAK_PASSWORDS.has(pwd.toLowerCase())) return false;
-  return true;
 }
 
 router.post('/api/setup/initial-admin', setupLimiter, async (req, res) => {
@@ -42,7 +37,8 @@ router.post('/api/setup/initial-admin', setupLimiter, async (req, res) => {
   const { email, password, name } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   if (!isValidEmail(email)) return res.status(400).json({ error: 'Invalid email format' });
-  if (!isPasswordStrongEnough(password)) return res.status(400).json({ error: 'Password must be at least 8 characters and not a common weak password' });
+  const pwCheck = validatePasswordStrength(password, { email });
+  if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.reason });
 
   try {
     const { rows: countRows } = await pool.query('SELECT COUNT(*)::int AS c FROM app_users', []);
@@ -55,11 +51,11 @@ router.post('/api/setup/initial-admin', setupLimiter, async (req, res) => {
     try {
       await client.query('BEGIN');
       const ins = await client.query(
-        `INSERT INTO app_users (email, password_hash, is_active, token_version) VALUES ($1, $2, true, 0) RETURNING id`,
+        `INSERT INTO app_users (email, password_hash, is_active, token_version, password_set_at) VALUES ($1, $2, true, 0, now()) RETURNING id`,
         [cleanEmail, passwordHash]
       );
       const userId = ins.rows[0].id;
-      const adminsGrp = await client.query(`SELECT id FROM groups WHERE name = 'Admins'`);
+      const adminsGrp = await client.query(`SELECT id FROM groups WHERE name = 'Admin'`);
       if (adminsGrp.rows.length > 0) {
         await client.query(`INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [userId, adminsGrp.rows[0].id]);
       }

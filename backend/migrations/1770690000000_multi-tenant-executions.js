@@ -13,9 +13,7 @@
  * 
  * @type {import('node-pg-migrate').ColumnDefinitions | undefined}
  */
-export const shorthands = undefined;
-
-export const up = (pgm) => {
+exports.up = (pgm) => {
   // Step 1: Drop the FK from execution_nodes that references executions
   pgm.dropConstraint('execution_nodes', 'execution_nodes_execution_id_fkey', { ifExists: true });
 
@@ -44,7 +42,7 @@ export const up = (pgm) => {
   });
 };
 
-export const down = (pgm) => {
+exports.down = (pgm) => {
   // Reverse the changes
   pgm.dropConstraint('execution_nodes', 'execution_nodes_execution_fkey', { ifExists: true });
   pgm.dropIndex('executions', 'instance_id', { name: 'idx_executions_instance_id' });

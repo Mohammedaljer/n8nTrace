@@ -68,6 +68,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
     // Still loading auth - keep isLoading true
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load depends on authState.status which is already listed
   }, [authState.status, loadAttempt]);
 
   const reload = useCallback(() => {

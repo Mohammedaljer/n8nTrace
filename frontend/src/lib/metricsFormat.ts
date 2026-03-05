@@ -14,18 +14,6 @@ export function formatBytes(bytes: number | null | undefined): string {
   return `${value.toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
-export function formatBytesShort(bytes: number | null | undefined): string {
-  if (bytes === null || bytes === undefined) return "—";
-  if (bytes === 0) return "0";
-  
-  const units = ["B", "K", "M", "G", "T"];
-  const k = 1024;
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  const value = bytes / Math.pow(k, i);
-  
-  return `${value.toFixed(i > 0 ? 1 : 0)}${units[i]}`;
-}
-
 export function formatCpuRate(rate: number | null | undefined): string {
   if (rate === null || rate === undefined) return "—";
   // CPU rate is typically 0-N where 1 = 100% of one core
@@ -60,15 +48,6 @@ export function formatUptime(startTimeSeconds: number | null | undefined): strin
   const days = Math.floor(uptimeSeconds / 86400);
   const hours = Math.floor((uptimeSeconds % 86400) / 3600);
   return `${days}d ${hours}h`;
-}
-
-export function formatTimestamp(isoString: string | null | undefined): string {
-  if (!isoString) return "—";
-  try {
-    return new Date(isoString).toLocaleString();
-  } catch {
-    return "—";
-  }
 }
 
 export function formatTimeAgo(isoString: string | null | undefined): string {

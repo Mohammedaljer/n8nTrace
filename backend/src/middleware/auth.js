@@ -14,13 +14,35 @@ function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 }
 
+/**
+ * Parse JWT_EXPIRY string (e.g. '30m', '1h', '7d') into milliseconds.
+ * Falls back to 30 minutes if the format is unrecognised.
+ */
+function parseExpiryToMs(expiry) {
+  if (typeof expiry === 'number') return expiry * 1000;         // seconds
+  if (typeof expiry !== 'string') return 30 * 60 * 1000;
+  const match = expiry.match(/^(\d+)\s*(ms|s|m|h|d)$/);
+  if (!match) return 30 * 60 * 1000;
+  const num = parseInt(match[1], 10);
+  switch (match[2]) {
+    case 'ms': return num;
+    case 's':  return num * 1000;
+    case 'm':  return num * 60 * 1000;
+    case 'h':  return num * 60 * 60 * 1000;
+    case 'd':  return num * 24 * 60 * 60 * 1000;
+    default:   return 30 * 60 * 1000;
+  }
+}
+
+const COOKIE_MAX_AGE_MS = parseExpiryToMs(JWT_EXPIRY);
+
 function setAuthCookie(res, token) {
   const opts = {
     httpOnly: true,
     secure: COOKIE_SECURE,
     sameSite: COOKIE_SAMESITE,
     path: '/',
-    maxAge: 30 * 60 * 1000,
+    maxAge: COOKIE_MAX_AGE_MS,
   };
   if (COOKIE_DOMAIN) opts.domain = COOKIE_DOMAIN;
   res.cookie(TOKEN_COOKIE, token, opts);
@@ -153,11 +175,8 @@ module.exports = {
   setAuthCookie,
   clearAuthCookie,
   getUserPermissions,
-  getUserScope,
-  attachScope,
   requireAuth,
   requirePermission,
-  isAdminRequest,
   countActiveAdmins,
   userIsActiveAdmin,
   groupIdsGrantAdmin,

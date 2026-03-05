@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { PageShell } from "@/components/PageShell";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/state";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -364,7 +365,7 @@ function NodeGroupRow({ group }: { group: NodeGroup }) {
 
 export default function ExecutionDetailPage() {
   const { executionId } = useParams<{ executionId: string }>();
-  const { loadResult, isLoading } = useData();
+  const { loadResult, isLoading, error: dataError, reload } = useData();
   const { filters, hasActiveFilters, temporarilyIgnoreFilters, setTemporarilyIgnoreFilters } =
     useFilters();
 
@@ -423,6 +424,15 @@ export default function ExecutionDetailPage() {
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
+      </PageShell>
+    );
+  }
+
+  // ========== Error State ==========
+  if (dataError) {
+    return (
+      <PageShell title="Error" description="">
+        <ErrorState message="Failed to load execution data" details={dataError} onRetry={reload} />
       </PageShell>
     );
   }

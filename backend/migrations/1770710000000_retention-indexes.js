@@ -6,9 +6,7 @@
  * 
  * @type {import('node-pg-migrate').ColumnDefinitions | undefined}
  */
-export const shorthands = undefined;
-
-export const up = (pgm) => {
+exports.up = (pgm) => {
   // Index on executions.stopped_at for finished execution retention queries
   pgm.createIndex('executions', 'stopped_at', {
     name: 'idx_executions_stopped_at',
@@ -26,7 +24,7 @@ export const up = (pgm) => {
   // Note: idx_executions_ingested_at already exists from retention-and-audit migration
 };
 
-export const down = (pgm) => {
+exports.down = (pgm) => {
   pgm.dropIndex('executions', ['finished', 'stopped_at'], { 
     name: 'idx_executions_finished_stopped',
     ifExists: true 

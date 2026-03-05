@@ -1,0 +1,46 @@
+# =============================================================================
+# Docker build context exclusions
+# Keep the build context minimal and prevent secrets from leaking into images
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI / GitHub
+.github
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Secrets (CRITICAL — never include in image)
+.env
+.env.*
+*.pem
+*.key
+*.crt
+cosign/cosign.key
+
+# Documentation
+docs
+*.md
+LICENSE
+
+# Workflows (n8n JSON templates)
+Workflows
+
+# Docker files (not needed inside the image)
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS junk
+Thumbs.db
+.DS_Store

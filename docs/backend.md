@@ -1,6 +1,6 @@
 # Backend Architecture
 
-n8n Pulse backend is an Express.js REST API providing authentication, authorization, and data access for workflow execution / metrics analytics.
+n8n-trace backend is an Express.js REST API providing authentication, authorization, and data access for workflow execution / metrics analytics.
 
 ## Table of Contents
 
@@ -38,7 +38,7 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
   - [Authentication Flow](#authentication-flow)
     - [Token Invalidation](#token-invalidation)
   - [n8n Data Ingestion](#n8n-data-ingestion)
-    - [PULSE\_INGEST\_USER](#pulse_ingest_user)
+    - [TRACE\_INGEST\_USER](#trace_ingest_user)
   - [Building \& Running](#building--running)
     - [Local Development](#local-development)
     - [Docker](#docker)
@@ -55,7 +55,7 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
 
 | Component | Technology | Version |
 |-----------|------------|--------|
-| Runtime | Node.js | 20+ |
+| Runtime | Node.js | 22+ |
 | Framework | Express.js | 5.x |
 | Database | PostgreSQL | 17+ |
 | Auth | JWT + HttpOnly Cookies | - |
@@ -74,10 +74,9 @@ n8n Pulse backend is an Express.js REST API providing authentication, authorizat
 backend/
 ├── index.js                    # Entry point
 ├── package.json                # Dependencies and scripts
-├── Dockerfile                  # Production Docker image
 │
 ├── src/
-│   ├── app.js                  # Express app factory
+│   ├── app.js                  # Express app factory (API + static serving)
 │   ├── server.js               # Server startup
 │   │
 │   ├── config/
@@ -96,6 +95,7 @@ backend/
 │   ├── services/
 │   │   ├── audit.js            # Audit logging
 │   │   ├── authz.js            # RBAC authorization
+│   │   ├── metricsExplorer.js  # Metrics Explorer queries
 │   │   ├── retention.js        # Data retention cleanup
 │   │   └── passwordTokens.js   # Password reset tokens
 │   │
@@ -108,6 +108,8 @@ backend/
 │   │   └── metrics.js          # Instance metrics
 │   │
 │   └── utils/
+│       ├── labels.js           # Label utilities
+│       ├── password.js         # Password strength validation & denylist
 │       └── sql.js              # SQL helpers
 │
 ├── migrations/                 # Database migrations
@@ -161,6 +163,8 @@ email           TEXT NOT NULL UNIQUE
 password_hash   TEXT              -- NULL until password set
 is_active       BOOLEAN DEFAULT true
 token_version   INTEGER DEFAULT 0 -- Incremented to invalidate sessions
+failed_login_attempts INTEGER DEFAULT 0
+locked_until    TIMESTAMPTZ       -- NULL unless locked
 password_set_at TIMESTAMPTZ
 created_at      TIMESTAMPTZ DEFAULT now()
 updated_at      TIMESTAMPTZ DEFAULT now()
@@ -229,7 +233,10 @@ Migrations run automatically on startup via `src/db/autoInit.js`.
 | `retention-and-audit` | Audit log, retention tracking |
 | `multi-tenant-executions` | Composite PK for multi-tenant |
 | `add-metrics-snapshot` | n8n metrics table |
+| `retention-indexes` | Indexes for retention batch DELETEs |
 | `add-metrics-explorer` | Metrics Explorer tables |
+| `add-executions-instance-started-index` | Composite index `(instance_id, started_at DESC)` — see [Deployment → Database Migrations](./deployment.md#database-migrations) |
+| `performance-indexes` | Indexes on `execution_nodes(workflow_id)` and `audit_log(action, created_at)` |
 
 ```bash
 # Manual commands
@@ -267,6 +274,7 @@ npm run migrate:create -- my-migration
 | POST | `/api/auth/reset-password` | Reset with token | No |
 | POST | `/api/auth/set-password` | Set password (invite) | No |
 | POST | `/api/auth/validate-token` | Validate reset/invite token | No |
+| POST | `/api/auth/revoke-all-sessions` | Revoke all sessions for current user | Yes |
 
 ### Data (Scope-filtered)
 
@@ -350,12 +358,14 @@ Aggregation applies **within each time bucket per series** (downsampling), not a
 | GET | `/api/admin/audit-log-actions` | Available audit actions |
 | GET | `/api/admin/retention/status` | Retention status |
 | POST | `/api/admin/retention/run` | Trigger retention |
+| POST | `/api/admin/users/:userId/revoke-sessions` | Revoke all user sessions |
+| POST | `/api/admin/users/:userId/unlock` | Unlock a locked account |
 
 ### Debug (development only)
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/api/debug/ip` | Show client IP | Yes |
+| GET | `/api/debug/ip` | Show client IP | No (dev-only, gated by `DEBUG_IP` flag) |
 
 ---
 
@@ -408,7 +418,7 @@ Aggregation applies **within each time bucket per series** (downsampling), not a
 1. User POSTs `/api/auth/login` with `{email, password}`
 2. Backend verifies against `app_users.password_hash`
 3. JWT generated with `{userId, tokenVersion}`
-4. JWT stored in HttpOnly cookie `n8n_pulse_token`
+4. JWT stored in HttpOnly cookie `n8n_trace_token`
 5. Subsequent requests validated via cookie
 6. If `token_version` changed, JWT rejected
 
@@ -420,18 +430,18 @@ Password change increments `token_version`, invalidating all sessions.
 
 ## n8n Data Ingestion
 
-### PULSE_INGEST_USER
+### TRACE_INGEST_USER
 
 Restricted PostgreSQL user for n8n to write data:
 
 ```sql
 -- Allowed tables:
-GRANT SELECT, INSERT, UPDATE ON workflows_index TO pulse_ingest;
-GRANT SELECT, INSERT, UPDATE ON executions TO pulse_ingest;
-GRANT SELECT, INSERT, UPDATE ON execution_nodes TO pulse_ingest;
-GRANT SELECT, INSERT, UPDATE ON n8n_metrics_snapshot TO pulse_ingest;
-GRANT SELECT, INSERT, UPDATE ON metrics_series TO pulse_ingest;
-GRANT SELECT, INSERT, UPDATE ON metrics_samples TO pulse_ingest;
+GRANT SELECT, INSERT, UPDATE ON workflows_index TO trace_ingest;
+GRANT SELECT, INSERT, UPDATE ON executions TO trace_ingest;
+GRANT SELECT, INSERT, UPDATE ON execution_nodes TO trace_ingest;
+GRANT SELECT, INSERT, UPDATE ON n8n_metrics_snapshot TO trace_ingest;
+GRANT SELECT, INSERT, UPDATE ON metrics_series TO trace_ingest;
+GRANT SELECT, INSERT, UPDATE ON metrics_samples TO trace_ingest;
 
 -- Cannot access: app_users, audit_log, RBAC tables
 -- Cannot DELETE any data
@@ -446,7 +456,7 @@ GRANT SELECT, INSERT, UPDATE ON metrics_samples TO pulse_ingest;
 ```bash
 cd backend
 npm install
-export DATABASE_URL="postgres://user:pass@localhost:5432/n8n_pulse"
+export DATABASE_URL="postgres://user:pass@localhost:5432/n8n_trace"
 export JWT_SECRET="your-32-char-secret"
 npm run dev
 ```
@@ -454,14 +464,15 @@ npm run dev
 ### Docker
 
 ```bash
-docker build -t n8n_pulse_backend:local ./backend
+# Build unified image (from repo root)
+docker build -t n8n_trace:local .
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 ### Health Check
 
 ```bash
-curl http://localhost:8001/health
+curl http://localhost:8899/health
 # {"ok":true,"db":"connected"}
 ```
 
@@ -484,5 +495,5 @@ See [Configuration Reference](./configuration.md) for complete list.
 |----------|---------|-------------|
 | `PORT` | `8001` | HTTP port |
 | `APP_ENV` | `production` | `production` or `development` |
-| `TRUST_PROXY` | `1` | Proxy hops |
+| `TRUST_PROXY` | `false` | Proxy hops |
 | `LOG_FORMAT` | `json` (prod) / `dev` | Morgan format |

@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-n8n Pulse frontend is a React SPA with TypeScript, providing dashboards and admin interfaces.
+n8n-trace frontend is a React SPA with TypeScript, providing dashboards and admin interfaces. In production, the built SPA is served by the Express backend as static files.
 
 ## Technology Stack
 
@@ -76,8 +76,6 @@ frontend/
 │       └── metricsFormat.ts
 │
 ├── public/                     # Static assets
-├── nginx.conf                  # Production nginx config
-├── Dockerfile                  # Production image
 └── package.json
 ```
 
@@ -124,16 +122,18 @@ const { user, permissions, isAuthenticated, logout } = useAuth();
 ### Route Protection
 
 ```tsx
-// Require authentication
+// Require authentication (redirects to /login?returnTo=<current-path>)
 <RequireAuth>
   <AppLayout />
 </RequireAuth>
 
-// Require specific permission
-<RequirePerm perm="admin:users">
+// Require specific permission (redirects to /login or /dashboard)
+<RequirePerm perm=\"admin:users\">
   <AdminUsersPage />
 </RequirePerm>
 ```
+
+After login, the user is redirected to the original URL from the `returnTo` query parameter (or `/dashboard` by default).
 
 ## API Integration
 
@@ -173,23 +173,19 @@ npm run build
 
 ### Docker
 
+The frontend is built during the unified Docker image build (3-stage Dockerfile at repo root):
+
 ```bash
-docker build -t n8n_pulse_frontend:local ./frontend
+# Build the unified image (from repo root)
+docker build -t n8n_trace:local .
 ```
 
-## nginx Configuration
+The Vite build output (`dist/`) is copied to `/app/public` inside the container. Express serves these files with appropriate cache headers:
 
-Production nginx serves static files and proxies `/api/*` to backend:
+| Path | Cache | Description |
+|------|-------|-------------|
+| `/assets/*` | `max-age=1y, immutable` | Vite-hashed JS/CSS bundles |
+| `/` (other static) | `max-age=1h` | Favicon, robots.txt, etc. |
+| `index.html` (SPA fallback) | `no-cache, no-store` | Always fresh |
 
-```nginx
-location /api/ {
-    proxy_pass http://backend:8001;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-}
-
-location / {
-    root /usr/share/nginx/html;
-    try_files $uri /index.html;
-}
-```
+See [Architecture](./architecture.md) for the full request flow.

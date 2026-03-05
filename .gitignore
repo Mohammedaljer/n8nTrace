@@ -1,4 +1,4 @@
-# n8n Pulse - Security-focused .gitignore
+# n8n-trace - Security-focused .gitignore
 # See https://help.github.com/articles/ignoring-files/
 
 # =============================================================================
@@ -110,9 +110,12 @@ venv/
 docker-compose*.yml
 docker-compose*.yaml
 
-# ...but keep production compose
+# ...but keep production and local compose (no secrets — uses ${VAR} placeholders)
 !docker-compose.prod.yml
 !docker-compose.prod.yaml
+!docker-compose.local.yml
+!docker-compose.local.yaml
+
 # Ignore all markdown everywhere
 **/*.md
 
@@ -123,11 +126,18 @@ docker-compose*.yaml
 !docs/
 !docs/**/*.md
 !/backend/README.md
-# Env backups
-.env.bak
-Build.md
+!/frontend/README.md
+# Keep workflow docs
 !Workflows/
 !Workflows/README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+# Personal notes (not for git)
+Build.md
+
+# Env backups
+.env.bak
+
 # Local DB/volumes if you use them
 volumes/
 
@@ -140,11 +150,7 @@ volumes/
 logs/
 /test_reports/
 /testreports/
-/backend/tests/
-/frontend/src/test/
 
 .gitleaks.toml
-jest.config.js
 start.sh
-audit-ci.json
 /cosign/cosign.key

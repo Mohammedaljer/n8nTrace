@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+/** Build-time version string injected by Vite from package.json */
+declare const __APP_VERSION__: string;
+
 interface ImportMetaEnv {
   /** Data source mode: "csv" (default) or "api" */
   readonly VITE_DATA_MODE?: "csv" | "api";

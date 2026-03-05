@@ -55,7 +55,7 @@ export function FilterProvider({ children }: FilterProviderProps) {
         filterState.setFilter('instanceId', instanceArray[0]);
       }
     }
-  }, [loadResult]); // intentionally not depending on filterState methods
+  }, [loadResult]); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally not depending on filterState methods
 
   return (
     <FilterContext.Provider

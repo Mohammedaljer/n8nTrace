@@ -12,7 +12,7 @@
 
 # Getting Started
 
-Get n8n Pulse running locally in minutes.
+Get n8n-trace running locally in minutes.
 
 ## Prerequisites
 
@@ -23,11 +23,11 @@ Get n8n Pulse running locally in minutes.
 
 ```bash
 # Clone repository
-git clone https://github.com/Mohammedaljer/n8nPulse.git
-cd n8nPulse
+git clone https://github.com/Mohammedaljer/n8nTrace.git
+cd n8n-trace
 
 # Start all services (dev mode)
-docker compose up -d --build
+docker compose -f docker-compose.local.yml up -d --build
 
 # Open dashboard
 open http://localhost:8899
@@ -38,7 +38,7 @@ open http://localhost:8899
 On first run, create the initial admin:
 
 1. Navigate to `http://localhost:8899/setup`
-2. Enter email and password (min 8 characters)
+2. Enter email and password (min 12 characters, must not be a common password)
 3. Click "Create Admin"
 4. Login with your credentials
 
@@ -52,7 +52,7 @@ On first run, create the initial admin:
 cd backend
 npm install
 
-export DATABASE_URL="postgres://user:pass@localhost:5432/n8n_pulse"
+export DATABASE_URL="postgres://user:pass@localhost:5432/n8n_trace"
 export JWT_SECRET="dev-secret-at-least-32-characters-long"
 export APP_ENV="development"
 

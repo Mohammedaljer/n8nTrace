@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { AdminGuard } from "@/admin/components/AdminGuard";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { SkeletonTable } from "@/components/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -52,6 +54,7 @@ export default function AdminAuditLogPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actions, setActions] = useState<string[]>([]);
   
   // Filters
@@ -67,11 +70,14 @@ export default function AdminAuditLogPage() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/audit-log-actions`, { credentials: "include" });
       if (res.ok) setActions(await res.json());
-    } catch {}
+    } catch {
+      // Silently ignore — actions list is non-critical
+    }
   };
 
   const loadLogs = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams();
       params.set("limit", String(limit));
@@ -81,11 +87,12 @@ export default function AdminAuditLogPage() {
       if (dateTo) params.set("date_to", new Date(dateTo + "T23:59:59").toISOString());
 
       const res = await fetch(`${API_BASE}/api/admin/audit-logs?${params}`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setLogs(data.logs);
-        setTotal(data.total);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setLogs(data.logs);
+      setTotal(data.total);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load audit logs");
     } finally {
       setLoading(false);
     }
@@ -97,6 +104,7 @@ export default function AdminAuditLogPage() {
 
   useEffect(() => {
     loadLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadLogs reads state from closure; listing it would cause infinite loops
   }, [page, selectedAction, dateFrom, dateTo]);
 
   const totalPages = Math.ceil(total / limit);
@@ -158,14 +166,12 @@ export default function AdminAuditLogPage() {
 
         {/* Table */}
         {loading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-          </div>
+          <SkeletonTable rows={10} columns={5} />
+        ) : loadError ? (
+          <ErrorState message="Failed to load audit logs" details={loadError} onRetry={loadLogs} />
         ) : (
           <>
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -179,8 +185,12 @@ export default function AdminAuditLogPage() {
                 <TableBody>
                   {logs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        No audit logs found.
+                      <TableCell colSpan={5} className="p-0">
+                        <EmptyState
+                          icon={<Search className="h-10 w-10" />}
+                          title="No audit logs found"
+                          description="Audit events will appear here as users interact with the system."
+                        />
                       </TableCell>
                     </TableRow>
                   ) : (

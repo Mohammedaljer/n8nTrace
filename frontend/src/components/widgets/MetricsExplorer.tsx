@@ -838,7 +838,7 @@ const byTs = new Map<number, ChartRow>();
 
                 <PopoverContent className="w-[400px] p-0 overflow-visible" align="start">
                   <Command>
-                    <CommandInput placeholder="Type to search metrics..." data-testid="metric-search-input" />
+                    <CommandInput placeholder="Type to search metrics..." data-testid="metric-search-input" aria-label="Search metrics" />
                     <CommandList>
                       <CommandEmpty>No metric found.</CommandEmpty>
                       <CommandGroup>

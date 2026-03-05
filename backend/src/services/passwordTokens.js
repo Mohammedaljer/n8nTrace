@@ -5,11 +5,6 @@ const { TOKEN_EXPIRY_MINUTES } = require('../config');
 function generateSecureToken() { return crypto.randomBytes(32).toString('hex'); }
 function hashToken(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
 function getBaseUrl() { return process.env.APP_URL || process.env.CORS_ORIGIN || 'http://localhost:3000'; }
-function clearAuthCookie(res) {
-  const opts = { path: '/', httpOnly: true, secure: COOKIE_SECURE, sameSite: COOKIE_SAMESITE };
-  if (COOKIE_DOMAIN) opts.domain = COOKIE_DOMAIN;
-  res.clearCookie(TOKEN_COOKIE, opts);
-}
 
 async function createPasswordToken(userId, type) {
   const rawToken = generateSecureToken();

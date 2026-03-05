@@ -4,8 +4,8 @@ const APP_ENV = process.env.APP_ENV || 'production';
 const IS_DEV = APP_ENV === 'development';
 
 const requiredEnvVars = ['DATABASE_URL'];
-const productionRequiredEnvVars = ['JWT_SECRET'];
-const UNSAFE_PLACEHOLDERS = ['changeme', 'password123', 'secret', 'asdasd', 'asdsad', 'your_ingest_password_change_me'];
+const productionRequiredEnvVars = ['JWT_SECRET', 'APP_URL', 'CORS_ORIGIN'];
+const UNSAFE_PLACEHOLDERS = ['changeme', 'password123', 'secret', 'asdasd', 'asdsad', 'your_ingest_password_change_me', 'dev-insecure-secret-change-me', 'dev-insecure'];
 
 function validateEnv() {
   const missing = [];

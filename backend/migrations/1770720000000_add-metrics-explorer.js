@@ -11,9 +11,7 @@
  * 
  * @type {import('node-pg-migrate').ColumnDefinitions | undefined}
  */
-export const shorthands = undefined;
-
-export const up = (pgm) => {
+exports.up = (pgm) => {
   // =========================================================================
   // TABLE: metrics_series
   // Stores unique combinations of metric_name + labels (the "series catalog")
@@ -120,7 +118,7 @@ export const up = (pgm) => {
   // =========================================================================
 };
 
-export const down = (pgm) => {
+exports.down = (pgm) => {
   // Drop tables (CASCADE will handle foreign keys)
   pgm.dropTable('metrics_samples', { cascade: true });
   pgm.dropTable('metrics_series', { cascade: true });

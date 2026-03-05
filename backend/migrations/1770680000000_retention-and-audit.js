@@ -2,9 +2,7 @@
  * Migration: Add ingested_at column and indexes for retention cleanup
  * Safe migration approach for large tables
  */
-export const shorthands = undefined;
-
-export const up = async (pgm) => {
+exports.up = async (pgm) => {
   // Check if ingested_at already exists on executions
   const execHasCol = await pgm.db.query(`
     SELECT EXISTS (
@@ -74,7 +72,7 @@ export const up = async (pgm) => {
   pgm.createIndex('audit_log', 'action', { name: 'idx_audit_log_action' });
 };
 
-export const down = (pgm) => {
+exports.down = (pgm) => {
   pgm.dropTable('audit_log');
   pgm.dropIndex('execution_nodes', 'idx_execution_nodes_ingested_at');
   pgm.dropIndex('executions', 'idx_executions_ingested_at');

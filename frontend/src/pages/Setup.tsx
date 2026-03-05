@@ -101,10 +101,10 @@ export default function SetupPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center mb-2">
-            <img src="/n8n_Pulse.svg" alt="n8n Pulse" className="h-16 w-16" />
+            <img src="/n8n-trace.svg" alt="n8n-trace" className="h-16 w-16" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-            n8n Pulse
+            n8n-trace
           </h1>
           <p className="text-muted-foreground text-sm">
             First-run setup — create the initial administrator
@@ -124,7 +124,7 @@ export default function SetupPage() {
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
               {error && (
-                <Alert variant="destructive" className="py-2">
+                <Alert variant="destructive" className="py-2" id="setup-error">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -142,6 +142,8 @@ export default function SetupPage() {
                   autoComplete="email"
                   required
                   className="h-11"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "setup-error" : undefined}
                 />
               </div>
 
@@ -157,6 +159,8 @@ export default function SetupPage() {
                   required
                   minLength={8}
                   className="h-11"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "setup-error" : undefined}
                 />
                 <p className="text-xs text-muted-foreground">
                   At least 8 characters; avoid common passwords like &quot;password123&quot;.

@@ -82,6 +82,7 @@ export function InstanceSelect({ value, instances, onValueChange }: InstanceSele
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 h-8"
+                aria-label="Search instances"
                 autoFocus
               />
             </div>

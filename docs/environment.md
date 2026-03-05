@@ -1,24 +1,31 @@
 # Environment Variables Reference
 
-Complete reference for all environment variables required to deploy n8n Pulse via Docker Compose or other container orchestration platforms.
+Complete reference for all environment variables required to deploy n8n-trace via Docker Compose or other container orchestration platforms.
 
 ---
 
 ## Table of Contents
 
-- [Required Variables](#required-variables)
-- [Application Settings](#application-settings)
-- [Security & Authentication](#security--authentication)
-- [Cookie Settings](#cookie-settings)
-- [Privacy / GDPR](#privacy--gdpr)
-- [First Admin (Optional)](#first-admin-optional)
-- [n8n Data Ingestion (Optional)](#n8n-data-ingestion-optional)
-- [Metrics Feature](#metrics-feature)
-- [Data Retention](#data-retention)
-- [Database Settings](#database-settings)
-- [Logging](#logging)
-- [Example Docker Compose .env](#example-docker-compose-env)
-- [Production Checklist](#production-checklist)
+- [Environment Variables Reference](#environment-variables-reference)
+  - [Table of Contents](#table-of-contents)
+  - [Required Variables](#required-variables)
+  - [Application Settings](#application-settings)
+  - [Security \& Authentication](#security--authentication)
+  - [Cookie Settings](#cookie-settings)
+  - [Privacy / GDPR](#privacy--gdpr)
+  - [First Admin (Optional)](#first-admin-optional)
+  - [n8n Data Ingestion (Optional)](#n8n-data-ingestion-optional)
+  - [Metrics Feature](#metrics-feature)
+  - [Data Retention](#data-retention)
+  - [Database Settings](#database-settings)
+  - [Logging](#logging)
+  - [Example Docker Compose .env](#example-docker-compose-env)
+  - [Production Checklist](#production-checklist)
+    - [Required (Enforced by fail-fast)](#required-enforced-by-fail-fast)
+    - [Required (Manual verification)](#required-manual-verification)
+    - [Recommended](#recommended)
+  - [Quick Reference: Generate Secrets](#quick-reference-generate-secrets)
+  - [Frontend Environment Variables](#frontend-environment-variables)
 
 ---
 
@@ -30,7 +37,7 @@ These variables **must** be set for the application to start.
 |----------|-------------|---------|-------|
 | `POSTGRES_PASSWORD` | Password for PostgreSQL database | `$(openssl rand -base64 24)` | Generate securely. Never use placeholders. |
 | `JWT_SECRET` | Secret key for signing JWT tokens | `$(openssl rand -base64 32)` | **Minimum 32 characters.** Backend refuses to start if shorter in production. |
-| `DATABASE_URL` | PostgreSQL connection string | `postgres://n8n_pulse:${POSTGRES_PASSWORD}@postgres:5432/n8n_pulse` | Use container hostname `postgres` in Docker Compose. |
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://n8n_trace:${POSTGRES_PASSWORD}@postgres:5432/n8n_trace` | Use container hostname `postgres` in Docker Compose. |
 
 ---
 
@@ -39,10 +46,10 @@ These variables **must** be set for the application to start.
 | Variable | Default | Required | Description | Example |
 |----------|---------|----------|-------------|---------|
 | `APP_ENV` | `production` | No | Set to `production` to enable fail-fast security checks | `production` |
-| `APP_URL` | `http://localhost:8899` | Yes (prod) | Public URL for the application. Used for CORS and links. | `https://pulse.example.com` |
-| `CORS_ORIGIN` | Same as `APP_URL` | Yes (prod) | Allowed origin for CORS. Must match frontend URL exactly. | `https://pulse.example.com` |
+| `APP_URL` | `http://localhost:3000` (dev), empty (prod) | Yes (prod) | Public URL for the application. Used for CSRF validation and links. | `https://trace.example.com` |
+| `CORS_ORIGIN` | `http://localhost:3000` (dev) | Yes (prod) | Allowed origin for CORS. Must match frontend URL exactly. | `https://trace.example.com` |
 | `PORT` | `8001` | No | Backend internal HTTP port | `8001` |
-| `HTTP_PORT` | `8899` | No | Frontend exposed port (Docker host mapping) | `8899` |
+| `HTTP_PORT` | `8899` | No | Published port (Docker host mapping) | `8899` |
 
 **Notes:**
 - `APP_ENV=production` enables fail-fast checks that prevent startup with insecure configuration
@@ -57,11 +64,24 @@ These variables **must** be set for the application to start.
 |----------|---------|----------|-------------|---------|
 | `JWT_SECRET` | (none) | **Yes** | Signing key for JWT tokens. Min 32 chars in production. | `abcdef123456...` (32+ chars) |
 | `JWT_EXPIRY` | `30m` | No | Session token lifetime | `30m`, `1h`, `7d` |
-| `TRUST_PROXY` | `1` | No | Number of proxy hops to trust for client IP | `1` (single proxy), `2` (CDN + proxy) |
+| `TRUST_PROXY` | `false` | No | Number of proxy hops to trust for client IP | `false` (direct), `1` (behind proxy) |
+| `PASSWORD_MIN_LENGTH` | `12` | No | Minimum password length for user accounts | `12`, `16` |
+| `ACCOUNT_LOCKOUT_THRESHOLD` | `10` | No | Failed login attempts before account lockout | `10`, `5` |
+| `ACCOUNT_LOCKOUT_DURATION_MINUTES` | `15` | No | Minutes to lock account after threshold reached | `15`, `30` |
+| `CSP_REPORT_ONLY` | `false` | No | Set `true` to log CSP violations without blocking | `false` |
+| `CSP_REPORT_URI` | (empty) | No | URL to receive CSP violation reports | `https://example.com/csp-report` |
 
 **Fail-fast checks (production mode):**
 - `JWT_SECRET` < 32 characters → startup fails
-- `JWT_SECRET` contains placeholder values (changeme, password123, secret) → startup fails
+- `JWT_SECRET` contains placeholder values (`changeme`, `password123`, `secret`, `dev-insecure-secret-change-me`, `dev-insecure`) → startup fails
+
+> **Note — `DEBUG_IP`**: Development-only flag. Set `DEBUG_IP=true` (with `APP_ENV=development`) to expose a `GET /api/debug/ip` endpoint that shows the resolved client IP. Ignored in production.
+
+> **Note — `TRUST_PROXY`**: Default is `false` (no proxy). Set to `1` when behind a reverse proxy (Traefik, Caddy, NGINX, ALB). Set to `2` when behind CDN + proxy. See [Architecture → Proxy Trust Model](./architecture.md#proxy-trust-model).
+
+> **Note — Password Policy**: Passwords must also pass a common-password denylist check (~60 entries). See [Security Guide → Password Policy](./security.md#password-policy).
+
+> **Note — Account Lockout**: Works alongside IP-based rate limiting. Lockout protects per-user, rate limiting protects per-IP. See [Security Guide → Account Lockout](./security.md#account-lockout).
 
 ---
 
@@ -84,7 +104,7 @@ These variables **must** be set for the application to start.
 | Variable | Default | Required | Description | Example |
 |----------|---------|----------|-------------|---------|
 | `AUDIT_LOG_IP_MODE` | `raw` | No | How to store client IPs in audit log | `raw`, `hashed`, `none` |
-| `AUDIT_LOG_IP_SALT` | (none) | If `hashed` | Salt for hashing IPs. Min 32 chars. | `$(openssl rand -base64 32)` |
+| `AUDIT_LOG_IP_SALT` | (none) | If `hashed` | Salt for hashing IPs. Recommended min 32 chars. | `$(openssl rand -base64 32)` |
 
 **IP Modes:**
 | Mode | Stored Value | GDPR Compliant |
@@ -117,8 +137,8 @@ Restricted database user for n8n workflows to write execution data.
 
 | Variable | Default | Required | Description | Example |
 |----------|---------|----------|-------------|---------|
-| `PULSE_INGEST_USER` | (none) | No | PostgreSQL username for ingest | `pulse_ingest` |
-| `PULSE_INGEST_PASSWORD` | (none) | No | PostgreSQL password for ingest | `$(openssl rand -base64 24)` |
+| `TRACE_INGEST_USER` | (none) | No | PostgreSQL username for ingest | `trace_ingest` |
+| `TRACE_INGEST_PASSWORD` | (none) | No | PostgreSQL password for ingest | `$(openssl rand -base64 24)` |
 
 **Ingest user permissions (least privilege):**
 - ✅ SELECT, INSERT, UPDATE on: `executions`, `execution_nodes`, `workflows_index`, `n8n_metrics_snapshot`, `metrics_series`, `metrics_samples`
@@ -172,11 +192,11 @@ Automatic cleanup of old data.
 | Variable | Default | Required | Description | Example |
 |----------|---------|----------|-------------|---------|
 | `DATABASE_URL` | (none) | **Yes** | PostgreSQL connection string | `postgres://user:pass@host:5432/db` |
-| `POSTGRES_USER` | `n8n_pulse` | No | Database username (compose) | `n8n_pulse` |
-| `POSTGRES_DB` | `n8n_pulse` | No | Database name (compose) | `n8n_pulse` |
+| `POSTGRES_USER` | `n8n_trace` | No | Database username (compose) | `n8n_trace` |
+| `POSTGRES_DB` | `n8n_trace` | No | Database name (compose) | `n8n_trace` |
 | `DB_POOL_MAX` | `20` | No | Maximum connections in pool | `20` |
 | `DB_IDLE_TIMEOUT` | `30000` | No | Idle connection timeout (ms) | `30000` |
-| `DB_CONNECT_TIMEOUT` | `10000` | No | Connection timeout (ms) | `10000` |
+| `DB_CONNECT_TIMEOUT` | `5000` | No | Connection timeout (ms) | `5000` |
 
 ---
 
@@ -185,6 +205,7 @@ Automatic cleanup of old data.
 | Variable | Default | Required | Description | Example |
 |----------|---------|----------|-------------|---------|
 | `LOG_FORMAT` | `json` (prod) / `dev` (dev) | No | Morgan log format | `json`, `combined`, `dev` |
+| `LOGIN_RATE_LIMIT_MAX` | `20` | No | Express-layer login rate limit (requests per 15 min window) | `20`, `100` (for testing) |
 
 ---
 
@@ -192,7 +213,7 @@ Automatic cleanup of old data.
 
 ```bash
 # ============================================
-# n8n Pulse - Production Environment
+# n8n-trace - Production Environment
 # ============================================
 # Copy to .env and fill in values
 # NEVER commit this file to version control
@@ -208,15 +229,20 @@ JWT_SECRET=CHANGE_ME_GENERATE_SECURE_SECRET_AT_LEAST_32_CHARS
 
 # --- Application ---
 APP_ENV=production
-APP_URL=https://pulse.example.com
-CORS_ORIGIN=https://pulse.example.com
+APP_URL=https://trace.example.com
+CORS_ORIGIN=https://trace.example.com
 HTTP_PORT=8899
 
 # --- Security ---
 COOKIE_SECURE=true
 COOKIE_SAMESITE=lax
-TRUST_PROXY=1
+TRUST_PROXY=false
 JWT_EXPIRY=30m
+PASSWORD_MIN_LENGTH=12
+ACCOUNT_LOCKOUT_THRESHOLD=10
+ACCOUNT_LOCKOUT_DURATION_MINUTES=15
+CSP_REPORT_ONLY=false
+# CSP_REPORT_URI=
 
 # --- Privacy (recommended for GDPR) ---
 AUDIT_LOG_IP_MODE=hashed
@@ -227,8 +253,8 @@ AUDIT_LOG_IP_SALT=CHANGE_ME_GENERATE_32_CHAR_SALT
 # ADMIN_PASSWORD=SecurePassword123!
 
 # --- n8n Ingestion (optional) ---
-PULSE_INGEST_USER=pulse_ingest
-PULSE_INGEST_PASSWORD=CHANGE_ME_GENERATE_SECURE_PASSWORD
+TRACE_INGEST_USER=trace_ingest
+TRACE_INGEST_PASSWORD=CHANGE_ME_GENERATE_SECURE_PASSWORD
 
 # --- Features ---
 METRICS_ENABLED=true
@@ -261,6 +287,9 @@ RETENTION_TZ=UTC
 
 ### Recommended
 - [ ] `AUDIT_LOG_IP_MODE=hashed` for GDPR compliance
+- [ ] `PASSWORD_MIN_LENGTH` ≥ 12
+- [ ] `ACCOUNT_LOCKOUT_THRESHOLD` ≤ 10
+- [ ] `CSP_REPORT_ONLY=false` (enforcing mode)
 - [ ] `RETENTION_ENABLED=true` to prevent unbounded growth
 - [ ] `METRICS_ENABLED=true` if using metrics features
 - [ ] Database backups configured
@@ -291,4 +320,4 @@ The frontend is built at Docker image build time. These variables are baked into
 | `VITE_API_BASE_URL` | (empty = relative `/api`) | Backend API URL. Usually not needed. |
 | `VITE_DATA_MODE` | `api` | Data source mode. Keep as `api`. |
 
-**Note:** Frontend env vars are set at build time, not runtime. The default configuration (empty `VITE_API_BASE_URL`) works correctly with the nginx proxy.
+**Note:** Frontend env vars are set at build time, not runtime. The default configuration (empty `VITE_API_BASE_URL`) works correctly because the frontend is served by the same Express server.

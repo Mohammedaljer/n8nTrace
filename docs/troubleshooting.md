@@ -19,6 +19,7 @@ Common issues and solutions.
   - [Dashboard Layout Not Saving](#dashboard-layout-not-saving)
   - [Retention Job Not Running](#retention-job-not-running)
   - [Wrong IP in Audit Logs](#wrong-ip-in-audit-logs)
+  - [Migration Failed](#migration-failed)
   - [Verification Commands](#verification-commands)
 
 <!-- /TOC -->
@@ -61,8 +62,8 @@ DATABASE_URL=postgres://user:pass@host:5432/dbname
 **Causes**: Database not connected, migrations running.
 
 ```bash
-docker compose logs backend
-docker exec n8n_pulse_backend curl -s http://localhost:8001/health
+docker compose logs n8n_trace_app
+docker exec n8n_trace_app /nodejs/bin/node -e "fetch('http://localhost:8001/health').then(r=>r.json()).then(console.log)"
 ```
 
 ## Cannot Access /setup
@@ -84,7 +85,7 @@ docker exec n8n_pulse_backend curl -s http://localhost:8001/health
 
 ```bash
 # Check user exists
-docker exec n8n_pulse_postgres psql -U n8n_pulse \
+docker exec n8n_trace_postgres psql -U n8n_trace \
   -c "SELECT email, is_active FROM app_users;"
 ```
 
@@ -108,7 +109,7 @@ const BCRYPT_ROUNDS = (typeof configBcryptRounds === 'number' && configBcryptRou
 **If still seeing this**: Rebuild the container:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build --force-recreate backend
+docker compose -f docker-compose.prod.yml up -d --build --force-recreate n8n_trace_app
 ```
 
 ## Rate Limited (429)
@@ -116,7 +117,7 @@ docker compose -f docker-compose.prod.yml up -d --build --force-recreate backend
 **Symptom**: 429 Too Many Requests.
 
 **Rate limits**:
-- Login: 5 per 15 min
+- Login: **20 per 15 min**
 - Admin API: 100 per min
 - Metrics API: 60 per min
 
@@ -149,10 +150,10 @@ APP_ENV=development
 
 ```bash
 # Correct
-CORS_ORIGIN=https://pulse.example.com
+CORS_ORIGIN=https://trace.example.com
 
 # Wrong
-CORS_ORIGIN=https://pulse.example.com/  # trailing slash
+CORS_ORIGIN=https://trace.example.com/  # trailing slash
 CORS_ORIGIN=*                            # fails in production
 ```
 
@@ -172,7 +173,7 @@ CORS_ORIGIN=*                            # fails in production
 METRICS_ENABLED=true
 
 # Check data
-docker exec n8n_pulse_postgres psql -U n8n_pulse \
+docker exec n8n_trace_postgres psql -U n8n_trace \
   -c "SELECT COUNT(*) FROM n8n_metrics_snapshot;"
 
 # Check user role (Viewer cannot see full metrics)
@@ -194,8 +195,8 @@ docker exec n8n_pulse_postgres psql -U n8n_pulse \
 
 ```javascript
 // In browser console
-localStorage.getItem('n8n_pulse_dashboard_layout')
-localStorage.removeItem('n8n_pulse_dashboard_layout')  // Reset
+localStorage.getItem('n8n_trace_dashboard_layout')
+localStorage.removeItem('n8n_trace_dashboard_layout')  // Reset
 ```
 
 ## Retention Job Not Running
@@ -214,13 +215,45 @@ RETENTION_RUN_AT=03:30
 
 ## Wrong IP in Audit Logs
 
-**Symptom**: Logs show `127.0.0.1` instead of real IP.
+**Symptom**: Logs show `127.0.0.1` or a Docker network IP instead of real client IP.
 
-**Cause**: `TRUST_PROXY` not set correctly.
+**Cause**: `TRUST_PROXY` does not match your deployment topology.
+
+**Solution** (depends on deployment):
+
+- **Direct access** (no reverse proxy): `TRUST_PROXY=false` (default). Express uses the raw TCP connection IP.
+
+- **Behind one proxy** (Traefik, Caddy, NGINX, ALB): `TRUST_PROXY=1`. Express reads the real IP from `X-Forwarded-For`.
+
+- **Behind CDN + proxy**: `TRUST_PROXY=2`.
+
+See [Architecture → Proxy Trust Model](./architecture.md#proxy-trust-model).
+
+## Migration Failed
+
+**Symptom**: Backend exits with `FATAL: Migration failed` on startup.
+
+**Common causes**:
+- Database schema conflicts from a previous failed migration
+- Manually modified tables that conflict with migration expectations
+
+**Solution**:
 
 ```bash
-TRUST_PROXY=1   # Single proxy
-TRUST_PROXY=2   # Two proxies
+# Check migration status
+docker exec n8n_trace_postgres psql -U n8n_trace -c \
+  "SELECT * FROM pgmigrations ORDER BY run_on;"
+
+# Check for invalid indexes
+docker exec n8n_trace_postgres psql -U n8n_trace -c \
+  "SELECT indexrelid::regclass, indisvalid FROM pg_index WHERE NOT indisvalid;"
+
+# Drop an invalid index if found
+docker exec n8n_trace_postgres psql -U n8n_trace -c \
+  "DROP INDEX IF EXISTS idx_executions_instance_started;"
+
+# Restart the app to re-run the migration
+docker compose restart n8n_trace_app
 ```
 
 ## Verification Commands
@@ -230,16 +263,15 @@ TRUST_PROXY=2   # Two proxies
 docker compose ps
 
 # Health check
-curl https://pulse.example.com/health
+curl https://trace.example.com/health
 
 # Setup status
-curl https://pulse.example.com/api/setup/status
+curl https://trace.example.com/api/setup/status
 
 # Logs
-docker compose logs -f backend
-docker compose logs -f frontend
+docker compose logs -f n8n_trace_app
 
 # Database
-docker exec n8n_pulse_postgres psql -U n8n_pulse \
+docker exec n8n_trace_postgres psql -U n8n_trace \
   -c "SELECT COUNT(*) FROM app_users;"
 ```

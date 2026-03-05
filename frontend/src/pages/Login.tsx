@@ -40,12 +40,20 @@ export default function LoginPage() {
       .catch(() => setSetupRequired(null));
   }, []);
 
+  // Where to go after login — read from ?returnTo= or default to /dashboard
+  // Sanitize: must be a relative path starting with "/" and not "//" (protocol-relative)
+  const rawReturnTo = searchParams.get("returnTo") || "/dashboard";
+  const returnTo =
+    rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
+      ? rawReturnTo
+      : "/dashboard";
+
   // Redirect if already authenticated
   useEffect(() => {
     if (state.status === "authenticated") {
-      nav("/dashboard", { replace: true });
+      nav(returnTo, { replace: true });
     }
-  }, [state.status, nav]);
+  }, [state.status, nav, returnTo]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,7 +71,7 @@ export default function LoginPage() {
       // Use the new login function that handles session + query invalidation
       await login(email, password);
       // Navigation happens via the useEffect above when state changes to authenticated
-      nav("/dashboard", { replace: true });
+      nav(returnTo, { replace: true });
     } catch (err: unknown) {
       setError(getErrorMessage(err));
       setIsSubmitting(false);
@@ -84,10 +92,10 @@ export default function LoginPage() {
         {/* Logo/Header */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center mb-2">
-            <img src="/n8n_Pulse.svg" alt="n8n Pulse" className="h-16 w-16" />
+            <img src="/n8n-trace.svg" alt="n8n-trace" className="h-16 w-16" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-            n8n Pulse
+            n8n-trace
           </h1>
           <p className="text-muted-foreground text-sm">
             Workflow analytics & monitoring dashboard
@@ -110,7 +118,7 @@ export default function LoginPage() {
                 </Alert>
               )}
               {error && (
-                <Alert variant="destructive" className="py-2">
+                <Alert variant="destructive" className="py-2" id="login-error">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -128,6 +136,8 @@ export default function LoginPage() {
                   autoComplete="email"
                   data-testid="login-email-input"
                   className="h-11"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "login-error" : undefined}
                 />
               </div>
 
@@ -142,6 +152,8 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   data-testid="login-password-input"
                   className="h-11"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "login-error" : undefined}
                 />
               </div>
 
@@ -184,9 +196,9 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground space-x-4">
-          <span>&copy; {new Date().getFullYear()} n8n Pulse</span>
+          <span>&copy; {new Date().getFullYear()} n8n-trace</span>
           <a 
-            href="https://github.com/Mohammedaljer/n8nPulse" 
+            href="https://github.com/Mohammedaljer/n8nTrace" 
             target="_blank" 
             rel="noopener noreferrer"
             className="hover:text-foreground transition-colors"
