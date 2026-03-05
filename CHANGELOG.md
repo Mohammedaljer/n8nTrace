@@ -98,8 +98,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.1] - 2026-02-21
 
-Tags the same commit as v1.4.0 (`ded38c4`). Published to align Docker Hub image tags; no functional changes from v1.4.0.
-
+- Fixed Calendar “Today” behavior to correctly set the time to the current moment.
+- Fixed issues in Metrics Explorer to improve reliability and data display — see Backend
+- Added support for multi-line charts in Metrics Explorer, enabling visualization of multiple metric series for easier comparison.
+- Updated metrics ingestion workflow — see metrics-snapshot.json
 ---
 
 ## [1.4.0] - 2026-02-21
