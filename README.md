@@ -15,12 +15,12 @@
 
 <p align="center">
   <a href="https://github.com/Mohammedaljer/n8nTrace/releases">
-    <img src="https://img.shields.io/github/v/release/Mohammedaljer/n8n-trace?style=flat&logo=github" alt="Release">
+    <img src="https://img.shields.io/github/v/release/Mohammedaljer/n8nTrace?display_name=tag&style=flat&logo=github" alt="Release">
   </a>
   <a href="https://hub.docker.com/r/mohammedaljer/n8n-trace">
     <img src="https://img.shields.io/docker/pulls/mohammedaljer/n8n-trace?style=flat&logo=docker" alt="Docker Pulls">
   </a>
-  <a href="./LICENSE">
+  <a href="https://github.com/Mohammedaljer/n8nTrace/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/Mohammedaljer/n8nTrace?style=flat" alt="License: MIT">
   </a>
   <a href="https://nodejs.org/">
@@ -320,7 +320,7 @@ Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelin
   </a>
   &nbsp;
   <a href="https://github.com/Mohammedaljer/n8nTrace/stargazers">
-    <img src="https://img.shields.io/github/stars/Mohammedaljer/n8nTrace?style=for-the-badge&logo=github" alt="Stars">
+    <img src="https://img.shields.io/github/stars/Mohammedaljer/n8nTrace?style=social" alt="Stars">
   </a>
 </p>
 
