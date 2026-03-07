@@ -5,7 +5,6 @@
  * Each test can override pool.query behaviour per scenario.
  */
 const express = require('express');
-const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -69,7 +68,13 @@ function buildAuthApp(poolOverride) {
 
   const app = express();
   app.use(express.json());
-  app.use(cookieParser());
+  // Inline cookie parsing (avoids importing cookie-parser in test context)
+  app.use((req, _res, next) => {
+    req.cookies = {};
+    const hdr = req.headers.cookie;
+    if (hdr) hdr.split(';').forEach(c => { const [n, ...v] = c.trim().split('='); req.cookies[n] = decodeURIComponent(v.join('=')); });
+    next();
+  });
 
   // --- Build mock deps matching what createAuthRouter expects ---
   const signToken = (payload) => jwt.sign(payload, TEST_JWT_SECRET, { expiresIn: '10m' });

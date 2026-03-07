@@ -11,7 +11,6 @@
  * Uses in-memory mocks — no PostgreSQL required.
  */
 const express = require('express');
-const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const request = require('supertest');
 
@@ -116,7 +115,13 @@ function buildTestApp({ permissionsForUser, authzForUser, pool: poolOverride, me
 
   const app = express();
   app.use(express.json());
-  app.use(cookieParser());
+  // Inline cookie parsing (avoids importing cookie-parser in test context)
+  app.use((req, _res, next) => {
+    req.cookies = {};
+    const hdr = req.headers.cookie;
+    if (hdr) hdr.split(';').forEach(c => { const [n, ...v] = c.trim().split('='); req.cookies[n] = decodeURIComponent(v.join('=')); });
+    next();
+  });
 
   const deps = {
     pool,

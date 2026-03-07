@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const compression = require('compression');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 
 const {
   TRUST_PROXY,
@@ -120,6 +121,22 @@ function createApp({ pool, state }) {
 
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
+
+  // ---------------------------------------------------------------------------
+  // Global baseline rate limiter (200 req/min/IP).
+  // Per-route limiters (injected via deps) enforce stricter limits on top.
+  // ---------------------------------------------------------------------------
+  app.use(rateLimit({
+    windowMs: 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => getStableIp(req),
+    handler: (_req, res, _next, options) => {
+      res.set('Retry-After', String(Math.ceil(options.windowMs / 1000)));
+      res.status(429).json({ error: 'Too many requests', retryAfter: Math.ceil(options.windowMs / 1000) });
+    },
+  }));
 
   const corsOrigin = CORS_ORIGIN;
   if (corsOrigin === '*') {
