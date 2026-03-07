@@ -35,6 +35,15 @@ const adminApiLimiter = createRateLimiter(60 * 1000, 100);
 // Auth session limiter (logout, etc.): 30 requests per minute per IP
 const authSessionLimiter = createRateLimiter(60 * 1000, 30);
 
+// General authenticated-read limiter: 120 requests per minute per IP
+const apiReadLimiter = createRateLimiter(60 * 1000, 120);
+
+// Heavy / expensive DB query limiter: 30 requests per minute per IP
+const heavyQueryLimiter = createRateLimiter(60 * 1000, 30);
+
+// Health endpoint limiter: 60 requests per minute per IP (protects against probe abuse)
+const healthLimiter = createRateLimiter(60 * 1000, 60);
+
 module.exports = {
   getStableIp,
   sensitiveAuthLimiter,
@@ -44,4 +53,7 @@ module.exports = {
   loginLimiter,
   adminApiLimiter,
   authSessionLimiter,
+  apiReadLimiter,
+  heavyQueryLimiter,
+  healthLimiter,
 };

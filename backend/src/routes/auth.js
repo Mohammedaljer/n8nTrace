@@ -15,7 +15,7 @@ function createAuthRouter(deps) {
   const {
     pool,
     state,
-    loginLimiter, sensitiveAuthLimiter, authSessionLimiter, signToken, setAuthCookie, clearAuthCookie, requireAuth, getUserPermissions, createPasswordToken, validateAndConsumeToken, hashToken, logAudit, getAuditContext
+    loginLimiter, sensitiveAuthLimiter, authSessionLimiter, apiReadLimiter, signToken, setAuthCookie, clearAuthCookie, requireAuth, getUserPermissions, createPasswordToken, validateAndConsumeToken, hashToken, logAudit, getAuditContext
   } = deps;
 
   const router = express.Router();
@@ -112,7 +112,7 @@ router.post('/api/auth/login', loginLimiter, async (req, res) => {
 
 router.post('/api/auth/logout', authSessionLimiter, (req, res) => { clearAuthCookie(res); res.json({ ok: true }); });
 
-router.get('/api/auth/me', requireAuth, async (req, res) => {
+router.get('/api/auth/me', apiReadLimiter, requireAuth, async (req, res) => {
   const { rows } = await pool.query(`SELECT id, email, is_active FROM app_users WHERE id = $1`, [req.user.sub]);
   if (!rows[0]) return res.status(401).json({ error: 'Not authenticated' });
   const permissions = await getUserPermissions(rows[0].id);
@@ -181,7 +181,7 @@ router.post('/api/auth/validate-token', sensitiveAuthLimiter, async (req, res) =
 // SESSION REVOCATION: Log out all devices
 // Increments token_version, invalidating every outstanding JWT for this user.
 // ============================================================================
-router.post('/api/auth/revoke-all-sessions', requireAuth, async (req, res) => {
+router.post('/api/auth/revoke-all-sessions', authSessionLimiter, requireAuth, async (req, res) => {
   const userId = req.user.sub;
   await pool.query(
     `UPDATE app_users SET token_version = COALESCE(token_version, 0) + 1, updated_at = now() WHERE id = $1`,

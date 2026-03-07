@@ -24,6 +24,9 @@ const {
   loginLimiter,
   adminApiLimiter,
   authSessionLimiter,
+  apiReadLimiter,
+  heavyQueryLimiter,
+  healthLimiter,
 } = require('./middleware/rateLimiters');
 
 const {
@@ -119,7 +122,12 @@ function createApp({ pool, state }) {
   app.use(cookieParser());
 
   const corsOrigin = CORS_ORIGIN;
-  app.use(cors({ origin: corsOrigin === '*' ? true : corsOrigin, credentials: true }));
+  if (corsOrigin === '*') {
+    // Wildcard origin: allow any origin WITHOUT credentials (safe per CORS spec)
+    app.use(cors({ origin: '*', credentials: false }));
+  } else {
+    app.use(cors({ origin: corsOrigin, credentials: true }));
+  }
 
   app.use(csrfOriginRefererCheck);
 
@@ -138,6 +146,9 @@ function createApp({ pool, state }) {
     loginLimiter,
     adminApiLimiter,
     authSessionLimiter,
+    apiReadLimiter,
+    heavyQueryLimiter,
+    healthLimiter,
 
     // auth/token
     signToken,

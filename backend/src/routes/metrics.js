@@ -117,7 +117,7 @@ async function getUserAllowedInstancesForMetrics(req) {
  * This allows personal UI customization (widget toggles) without granting
  * admin-level metrics.manage permission. Instance metrics remain admin-only.
  */
-router.get('/api/metrics/config', requireAuth, async (req, res) => {
+router.get('/api/metrics/config', requireAuth, metricsLimiter, async (req, res) => {
   const permissions = await getUserPermissions(req.user.sub);
   res.json({
     enabled: METRICS_ENABLED,

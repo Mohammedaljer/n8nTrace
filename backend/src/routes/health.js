@@ -5,7 +5,7 @@ function createHealthRouter(deps) {
   const {
     pool,
     state,
-    DEBUG_IP, getStableIp
+    DEBUG_IP, getStableIp, healthLimiter
   } = deps;
 
   const router = express.Router();
@@ -14,13 +14,13 @@ function createHealthRouter(deps) {
 // ROUTES: HEALTH
 // ============================================================================
 
-router.get('/health', async (req, res) => {
+router.get('/health', healthLimiter, async (req, res) => {
   if (!state.dbReady) return res.status(503).json({ ok: false, db: 'initializing' });
   try { await pool.query('SELECT 1'); res.json({ ok: true, db: 'connected' }); }
   catch { res.status(503).json({ ok: false, db: 'disconnected' }); }
 });
 
-router.get('/ready', async (req, res) => {
+router.get('/ready', healthLimiter, async (req, res) => {
   if (!state.dbReady) return res.status(503).json({ ready: false });
   try { await pool.query('SELECT 1'); res.json({ ready: true }); }
   catch { res.status(503).json({ ready: false }); }

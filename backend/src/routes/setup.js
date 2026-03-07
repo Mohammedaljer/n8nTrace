@@ -7,7 +7,7 @@ function createSetupRouter(deps) {
   const {
     pool,
     state,
-    setupLimiter, logAudit, getAuditContext
+    setupLimiter, apiReadLimiter, logAudit, getAuditContext
   } = deps;
 
   const router = express.Router();
@@ -16,7 +16,7 @@ function createSetupRouter(deps) {
 // ROUTES: SETUP (first-run initial admin)
 // setupRequired = true only when zero users exist. After first admin created, setup is disabled.
 // ============================================================================
-router.get('/api/setup/status', async (req, res) => {
+router.get('/api/setup/status', apiReadLimiter, async (req, res) => {
   if (!state.dbReady) return res.status(503).json({ error: 'Service initializing', setupRequired: false });
   try {
     const { rows } = await pool.query('SELECT COUNT(*)::int AS c FROM app_users', []);
@@ -29,7 +29,7 @@ router.get('/api/setup/status', async (req, res) => {
 });
 
 function isValidEmail(s) {
-  return typeof s === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim()) && s.trim().length <= 255;
+  return typeof s === 'string' && /^[^\s@]{1,64}@[^\s@]{1,253}\.[^\s@]{1,63}$/.test(s.trim()) && s.trim().length <= 255;
 }
 
 router.post('/api/setup/initial-admin', setupLimiter, async (req, res) => {

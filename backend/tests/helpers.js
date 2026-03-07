@@ -101,6 +101,7 @@ function buildAuthApp(poolOverride) {
     loginLimiter: (req, res, next) => next(),               // disable rate limit in tests
     sensitiveAuthLimiter: (req, res, next) => next(),
     authSessionLimiter: (req, res, next) => next(),
+    apiReadLimiter: (req, res, next) => next(),
     signToken,
     setAuthCookie,
     clearAuthCookie,

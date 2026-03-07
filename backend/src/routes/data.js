@@ -5,7 +5,7 @@ function createDataRouter(deps) {
   const {
     pool,
     state,
-    requireAuth, attachAuthz, requirePermission
+    requireAuth, attachAuthz, requirePermission, apiReadLimiter, heavyQueryLimiter
   } = deps;
 
   const router = express.Router();
@@ -21,7 +21,7 @@ function createDataRouter(deps) {
  * - Scoped user: only workflows allowed by tag/workflow_id scopes
  * - No scopes: empty array (default deny)
  */
-router.get('/api/workflows', requireAuth, attachAuthz, requirePermission('read:workflows'), async (req, res) => {
+router.get('/api/workflows', apiReadLimiter, requireAuth, attachAuthz, requirePermission('read:workflows'), async (req, res) => {
   const authz = req.authz;
   
   // Default deny for non-admin with no scopes
@@ -80,7 +80,7 @@ router.get('/api/workflows', requireAuth, attachAuthz, requirePermission('read:w
  * - Scoped user: only executions for allowed workflows
  * - No scopes: empty array (default deny)
  */
-router.get('/api/executions', requireAuth, attachAuthz, requirePermission('read:executions'), async (req, res) => {
+router.get('/api/executions', apiReadLimiter, requireAuth, attachAuthz, requirePermission('read:executions'), async (req, res) => {
   const authz = req.authz;
   
   // Default deny for non-admin with no scopes
@@ -149,7 +149,7 @@ router.get('/api/executions', requireAuth, attachAuthz, requirePermission('read:
  * - Scoped user: only nodes for allowed workflows
  * - No scopes: empty array (default deny)
  */
-router.get('/api/execution-nodes', requireAuth, attachAuthz, requirePermission('read:nodes'), async (req, res) => {
+router.get('/api/execution-nodes', heavyQueryLimiter, requireAuth, attachAuthz, requirePermission('read:nodes'), async (req, res) => {
   const authz = req.authz;
   
   // Default deny for non-admin with no scopes
@@ -159,7 +159,7 @@ router.get('/api/execution-nodes', requireAuth, attachAuthz, requirePermission('
   
   const executionId = req.query.execution_id || null;
   const instanceFilter = req.query.instance_id || null;
-  const limit = Math.min(Number(req.query.limit || 50000), 200000);
+  const limit = Math.min(Number(req.query.limit || 5000), 10000);
   
   // Build query based on authorization
   let paramIndex = 1;

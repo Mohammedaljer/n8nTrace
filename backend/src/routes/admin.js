@@ -41,7 +41,7 @@ router.post('/api/admin/users', requireAuth, requirePermission('admin:users'), a
   const { email, groupIds } = req.body || {};
   const cleanEmail = String(email || '').toLowerCase().trim();
   if (!cleanEmail) return res.status(400).json({ error: 'Email required' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) return res.status(400).json({ error: 'Invalid email' });
+  if (!/^[^\s@]{1,64}@[^\s@]{1,253}\.[^\s@]{1,63}$/.test(cleanEmail)) return res.status(400).json({ error: 'Invalid email' });
 
   const gids = Array.isArray(groupIds) ? groupIds : [];
   const client = await pool.connect();

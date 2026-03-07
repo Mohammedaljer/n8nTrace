@@ -130,6 +130,9 @@ function buildTestApp({ permissionsForUser, authzForUser, pool: poolOverride, me
     loginLimiter: noopLimiter,
     adminApiLimiter: noopLimiter,
     authSessionLimiter: noopLimiter,
+    apiReadLimiter: noopLimiter,
+    heavyQueryLimiter: noopLimiter,
+    healthLimiter: noopLimiter,
     logAudit: jest.fn(async () => {}),
     getAuditContext: jest.fn(() => ({ ip: '127.0.0.1' })),
   };
