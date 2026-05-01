@@ -48,6 +48,9 @@ import { FailedExecutionsTable } from "@/components/widgets/FailedExecutionsTabl
 import { MetricsKpiCards } from "@/components/widgets/MetricsKpiCards";
 import { MetricsChartsGrid } from "@/components/widgets/MetricsCharts";
 import { MetricsExplorer } from "@/components/widgets/MetricsExplorer";
+import { AlertsActiveCount } from "@/components/widgets/AlertsActiveCount";
+import { AlertsBySeverity } from "@/components/widgets/AlertsBySeverity";
+import { RecentAlertIncidents } from "@/components/widgets/RecentAlertIncidents";
 import { useMetrics } from "@/data/MetricsContext";
 import { Activity, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -201,13 +204,50 @@ export const WIDGET_REGISTRY: readonly WidgetDefinition[] = [
     requiresPermission: "metrics.read.full",
     requiresMetricsEnabled: true,
   },
+  // Alert widgets
+  {
+    id: "alerts-active-count",
+    title: "Active Alerts",
+    description: "Total currently active incidents",
+    component: AlertsActiveCount,
+    defaultOrder: 3,
+    defaultSize: "small",
+    defaultVisible: true,
+    allowedSizes: ["small", "medium"],
+    category: "alerts",
+    requiresPermission: "alerts.read",
+  },
+  {
+    id: "alerts-by-severity",
+    title: "Alerts by Severity",
+    description: "Critical, warning, and info active incident counts",
+    component: AlertsBySeverity,
+    defaultOrder: 4,
+    defaultSize: "small",
+    defaultVisible: true,
+    allowedSizes: ["small", "medium"],
+    category: "alerts",
+    requiresPermission: "alerts.read",
+  },
+  {
+    id: "alerts-recent-incidents",
+    title: "Recent Alert Incidents",
+    description: "Latest incidents across your visible scope",
+    component: RecentAlertIncidents,
+    defaultOrder: 5,
+    defaultSize: "medium",
+    defaultVisible: true,
+    allowedSizes: ["small", "medium", "large"],
+    category: "alerts",
+    requiresPermission: "alerts.read",
+  },
   // Analytics widgets
   {
     id: "kpi-cards",
     title: "KPI Cards",
     description: "Key performance metrics: runs, failures, durations",
     component: KpiCardsWidget,
-    defaultOrder: 3,
+    defaultOrder: 6,
     defaultSize: "large",
     defaultVisible: true,
     allowedSizes: ["medium", "large"],
@@ -218,7 +258,7 @@ export const WIDGET_REGISTRY: readonly WidgetDefinition[] = [
     title: "Executions Over Time",
     description: "Adaptive time buckets: hourly, daily, or weekly",
     component: TimeSeriesWidget,
-    defaultOrder: 4,
+    defaultOrder: 7,
     defaultSize: "medium",
     defaultVisible: true,
     allowedSizes: ["small", "medium", "large"],
@@ -229,7 +269,7 @@ export const WIDGET_REGISTRY: readonly WidgetDefinition[] = [
     title: "Slowest Nodes",
     description: "Top 10 nodes by P95 execution time",
     component: SlowNodesWidget,
-    defaultOrder: 5,
+    defaultOrder: 8,
     defaultSize: "small",
     defaultVisible: true,
     allowedSizes: ["small", "medium"],
@@ -240,7 +280,7 @@ export const WIDGET_REGISTRY: readonly WidgetDefinition[] = [
     title: "Recent Failures",
     description: "Most recent workflow errors",
     component: FailedExecutionsWidget,
-    defaultOrder: 6,
+    defaultOrder: 9,
     defaultSize: "large",
     defaultVisible: true,
     allowedSizes: ["small", "medium", "large"],

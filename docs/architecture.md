@@ -11,6 +11,7 @@ How n8n-trace is built, how requests flow, and how to configure proxy trust for 
     - [Direct access (default Docker Compose)](#direct-access-default-docker-compose)
     - [Behind a reverse proxy (Traefik, Caddy, NGINX, LB)](#behind-a-reverse-proxy-traefik-caddy-nginx-lb)
   - [Data Ingestion Model](#data-ingestion-model)
+  - [Alerting Model](#alerting-model)
   - [Proxy Trust Model](#proxy-trust-model)
     - [Direct Access (Default)](#direct-access-default)
     - [Behind a Reverse Proxy](#behind-a-reverse-proxy)
@@ -110,6 +111,28 @@ The `trace_ingest` user has least-privilege access:
 - **Denied**: `DELETE` on any table; any access to `app_users`, `audit_log`, RBAC tables
 
 The backend never writes to ingestion tables. It only reads them.
+
+---
+
+## Alerting Model
+
+Alerting is implemented as an in-process subsystem with database-backed queues and leases.
+
+1. **Evaluator worker** claims due rules, resolves rule targets, and updates incident lifecycle state.
+2. **Delivery worker** claims due outbox messages and sends notifications to configured destinations.
+3. **Maintenance worker** clears expired leases and recovers stuck delivery items.
+
+Key design traits:
+- Multi-instance safe: worker claims use `FOR UPDATE SKIP LOCKED` plus lease expiration columns.
+- Durable delivery: notifications use an outbox table with retry/backoff and attempt history.
+- Auditable lifecycle: acknowledgements and incident state changes append timeline events.
+- Scoped visibility: non-admin users only see incidents/delivery linked to authorized scopes.
+
+Main tables:
+- `alert_rules`, `alert_rule_selectors`, `alert_destinations`, `alert_rule_destinations`
+- `alert_incidents`, `alert_incident_events`, `alert_evaluation_state`
+- `alert_notification_outbox`, `alert_notification_attempts`
+- `workflow_alert_profile`
 
 ---
 

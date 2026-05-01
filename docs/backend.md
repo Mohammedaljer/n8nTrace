@@ -1,51 +1,52 @@
 # Backend Architecture
 
-n8n-trace backend is an Express.js REST API providing authentication, authorization, and data access for workflow execution / metrics analytics.
+n8n-trace backend is an Express.js REST API providing authentication, authorization, alerting, and data access for workflow execution / metrics analytics.
 
 ## Table of Contents
 
 <!-- TOC -->
 
 - [Backend Architecture](#backend-architecture)
-  - [Table of Contents](#table-of-contents)
-  - [Technology Stack](#technology-stack)
-  - [Project Structure](#project-structure)
-  - [Database Schema](#database-schema)
-    - [Tables Overview](#tables-overview)
-    - [Primary Keys](#primary-keys)
-    - [Core Tables](#core-tables)
-      - [`app_users`](#app_users)
-      - [`user_password_tokens`](#user_password_tokens)
-      - [`executions` (multi-tenant)](#executions-multi-tenant)
-      - [Metrics Explorer Tables](#metrics-explorer-tables)
-  - [Migrations](#migrations)
-  - [API Endpoints](#api-endpoints)
-    - [Health](#health)
-    - [Setup (First Run)](#setup-first-run)
-    - [Authentication](#authentication)
-    - [Data (Scope-filtered)](#data-scope-filtered)
-    - [Metrics](#metrics)
-      - [Metrics Catalog Behavior](#metrics-catalog-behavior)
-      - [Aggregation Parameter](#aggregation-parameter)
-      - [Metric Type Semantics](#metric-type-semantics)
-    - [Admin (requires `admin:users` permission)](#admin-requires-adminusers-permission)
-    - [Debug (development only)](#debug-development-only)
-  - [RBAC (Role-Based Access Control)](#rbac-role-based-access-control)
-    - [Default Roles](#default-roles)
-    - [Default Permissions](#default-permissions)
-    - [Role → Permission Mapping](#role--permission-mapping)
-    - [Scope Types](#scope-types)
-  - [Authentication Flow](#authentication-flow)
-    - [Token Invalidation](#token-invalidation)
-  - [n8n Data Ingestion](#n8n-data-ingestion)
-    - [TRACE\_INGEST\_USER](#trace_ingest_user)
-  - [Building \& Running](#building--running)
-    - [Local Development](#local-development)
-    - [Docker](#docker)
-    - [Health Check](#health-check)
-  - [Environment Variables](#environment-variables)
-    - [Required](#required)
-    - [Optional](#optional)
+    - [Table of Contents](#table-of-contents)
+    - [Technology Stack](#technology-stack)
+    - [Project Structure](#project-structure)
+    - [Database Schema](#database-schema)
+        - [Tables Overview](#tables-overview)
+        - [Primary Keys](#primary-keys)
+        - [Core Tables](#core-tables)
+            - [app_users](#app_users)
+            - [user_password_tokens](#user_password_tokens)
+            - [executions multi-tenant](#executions-multi-tenant)
+            - [Metrics Explorer Tables](#metrics-explorer-tables)
+    - [Migrations](#migrations)
+    - [API Endpoints](#api-endpoints)
+        - [Health](#health)
+        - [Setup First Run](#setup-first-run)
+        - [Authentication](#authentication)
+        - [Data Scope-filtered](#data-scope-filtered)
+        - [Metrics](#metrics)
+            - [Metrics Catalog Behavior](#metrics-catalog-behavior)
+            - [Aggregation Parameter](#aggregation-parameter)
+            - [Metric Type Semantics](#metric-type-semantics)
+        - [Admin requires admin:users permission](#admin-requires-adminusers-permission)
+        - [Alerts](#alerts)
+        - [Debug development only](#debug-development-only)
+    - [RBAC Role-Based Access Control](#rbac-role-based-access-control)
+        - [Default Roles](#default-roles)
+        - [Default Permissions](#default-permissions)
+        - [Role → Permission Mapping](#role-%E2%86%92-permission-mapping)
+        - [Scope Types](#scope-types)
+    - [Authentication Flow](#authentication-flow)
+        - [Token Invalidation](#token-invalidation)
+    - [n8n Data Ingestion](#n8n-data-ingestion)
+        - [TRACE_INGEST_USER](#trace_ingest_user)
+    - [Building & Running](#building--running)
+        - [Local Development](#local-development)
+        - [Docker](#docker)
+        - [Health Check](#health-check)
+    - [Environment Variables](#environment-variables)
+        - [Required](#required)
+        - [Optional](#optional)
 
 <!-- /TOC -->
 
@@ -94,6 +95,9 @@ backend/
 │   │
 │   ├── services/
 │   │   ├── audit.js            # Audit logging
+│   │   ├── alertsCore.js       # Alert evaluation + target resolution helpers
+│   │   ├── alertsCrypto.js     # Alert destination secret encryption
+│   │   ├── alertsWorkers.js    # Evaluator/delivery/maintenance workers
 │   │   ├── authz.js            # RBAC authorization
 │   │   ├── metricsExplorer.js  # Metrics Explorer queries
 │   │   ├── retention.js        # Data retention cleanup
@@ -105,7 +109,8 @@ backend/
 │   │   ├── auth.js             # Authentication
 │   │   ├── data.js             # Workflows, executions
 │   │   ├── admin.js            # Admin management
-│   │   └── metrics.js          # Instance metrics
+│   │   ├── metrics.js          # Instance metrics
+│   │   └── alerts.js           # Alerting API
 │   │
 │   └── utils/
 │       ├── labels.js           # Label utilities
@@ -141,6 +146,16 @@ backend/
 | `n8n_metrics_snapshot` | Instance health snapshots (from n8n) |
 | `metrics_series` | Metrics Explorer series definitions |
 | `metrics_samples` | Metrics Explorer time-series data |
+| `workflow_alert_profile` | Workflow-level alert exclusions/profile flags |
+| `alert_rules` | Alert rule definitions |
+| `alert_rule_selectors` | Rule include/exclude scope selectors |
+| `alert_destinations` | Alert destinations (webhooks) |
+| `alert_rule_destinations` | Rule-to-destination routing settings |
+| `alert_incidents` | Incident lifecycle state |
+| `alert_incident_events` | Incident timeline/audit events |
+| `alert_evaluation_state` | Consecutive breach/ok counters by target |
+| `alert_notification_outbox` | Notification delivery queue |
+| `alert_notification_attempts` | Delivery attempt history |
 
 ### Primary Keys
 
@@ -236,6 +251,7 @@ Migrations run automatically on startup via `src/db/autoInit.js`.
 | `retention-indexes` | Indexes for retention batch DELETEs |
 | `add-metrics-explorer` | Metrics Explorer tables |
 | `add-executions-instance-started-index` | Composite index `(instance_id, started_at DESC)` — see [Deployment → Database Migrations](./deployment.md#database-migrations) |
+| `add-alerting-system` | Alerting subsystem schema + alert RBAC permissions |
 | `performance-indexes` | Indexes on `execution_nodes(workflow_id)` and `audit_log(action, created_at)` |
 
 ```bash
@@ -361,6 +377,30 @@ Aggregation applies **within each time bucket per series** (downsampling), not a
 | POST | `/api/admin/users/:userId/revoke-sessions` | Revoke all user sessions |
 | POST | `/api/admin/users/:userId/unlock` | Unlock a locked account |
 
+### Alerts
+
+| Method | Endpoint | Description | Auth | Permission |
+|--------|----------|-------------|------|------------|
+| GET | `/api/alerts/overview` | Active alert counts and delivery health | Yes | `alerts.read` |
+| GET | `/api/alerts/incidents` | Scoped incident list | Yes | `alerts.read` |
+| GET | `/api/alerts/incidents/:incidentId/events` | Incident timeline | Yes | `alerts.read` or `alerts.history.read` |
+| POST | `/api/alerts/incidents/:incidentId/ack` | Acknowledge incident | Yes | `alerts.incidents.ack` |
+| POST | `/api/alerts/incidents/:incidentId/suppress` | Suppress incident for N minutes | Yes | `alerts.incidents.ack` |
+| GET | `/api/alerts/rules` | List rules | Yes | `alerts.read` |
+| POST | `/api/alerts/rules` | Create rule | Yes | `alerts.rules.manage` |
+| PUT | `/api/alerts/rules/:ruleId` | Update rule | Yes | `alerts.rules.manage` |
+| DELETE | `/api/alerts/rules/:ruleId` | Delete rule | Yes | `alerts.rules.manage` |
+| POST | `/api/alerts/rules/:ruleId/toggle` | Enable/disable rule | Yes | `alerts.rules.manage` |
+| GET | `/api/alerts/rules/:ruleId/preview-targets` | Preview rule target scope | Yes | `alerts.read` |
+| GET | `/api/alerts/destinations` | List destinations | Yes | `alerts.read` |
+| POST | `/api/alerts/destinations` | Create destination | Yes | `alerts.destinations.manage` |
+| PUT | `/api/alerts/destinations/:destinationId` | Update destination | Yes | `alerts.destinations.manage` |
+| DELETE | `/api/alerts/destinations/:destinationId` | Delete destination | Yes | `alerts.destinations.manage` |
+| POST | `/api/alerts/destinations/:destinationId/test` | Send test webhook | Yes | `alerts.destinations.test` |
+| GET | `/api/alerts/delivery-log` | Delivery queue log | Yes | `alerts.read` or `alerts.history.read` |
+| GET | `/api/alerts/tools/engine-status` | Worker/evaluator status | Yes | admin or `alerts.history.read` |
+| GET | `/api/alerts/tools/attempts/:outboxId` | Delivery attempt history | Yes | `alerts.history.read` |
+
 ### Debug (development only)
 
 | Method | Endpoint | Description | Auth |
@@ -393,14 +433,20 @@ Aggregation applies **within each time bucket per series** (downsampling), not a
 | `metrics.read.version` | Read n8n version only |
 | `metrics.read.full` | Read all metrics |
 | `metrics.manage` | Manage metrics config |
+| `alerts.read` | Read alerts pages, incidents, and widgets |
+| `alerts.rules.manage` | Create, update, and delete alert rules |
+| `alerts.incidents.ack` | Acknowledge/suppress incidents |
+| `alerts.destinations.manage` | Manage alert destinations |
+| `alerts.destinations.test` | Send destination test payloads |
+| `alerts.history.read` | Read incident timeline and delivery history |
 
 ### Role → Permission Mapping
 
 | Role | Permissions |
 |------|-------------|
 | admin | All permissions |
-| analyst | `read:*`, `export:data`, `metrics.read.version`, `metrics.read.full` |
-| viewer | `read:*`, `metrics.read.version` |
+| analyst | `read:*`, `export:data`, `metrics.read.version`, `metrics.read.full`, `alerts.read`, `alerts.incidents.ack`, `alerts.history.read` |
+| viewer | `read:*`, `metrics.read.version`, `alerts.read` |
 
 ### Scope Types
 

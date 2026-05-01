@@ -7,6 +7,24 @@ const requiredEnvVars = ['DATABASE_URL'];
 const productionRequiredEnvVars = ['JWT_SECRET', 'APP_URL', 'CORS_ORIGIN'];
 const UNSAFE_PLACEHOLDERS = ['changeme', 'password123', 'secret', 'asdasd', 'asdsad', 'your_ingest_password_change_me', 'dev-insecure-secret-change-me', 'dev-insecure'];
 
+function parseAlertSecretKey(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const value = raw.trim();
+  if (!value) return null;
+
+  // Accept hex (64 chars) or base64(32-byte payload)
+  if (/^[0-9a-fA-F]{64}$/.test(value)) return Buffer.from(value, 'hex');
+
+  try {
+    const decoded = Buffer.from(value, 'base64');
+    if (decoded.length === 32) return decoded;
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 function validateEnv() {
   const missing = [];
   for (const key of requiredEnvVars) {
@@ -28,6 +46,18 @@ function validateEnv() {
   }
   if (IS_DEV && (!jwtSecret || jwtSecret.length < 20)) {
     console.warn('WARNING: JWT_SECRET is missing or weak.');
+  }
+
+  const alertsEnabled = (process.env.ALERTS_ENABLED || 'false').toLowerCase() === 'true';
+  const alertSecret = parseAlertSecretKey(process.env.ALERTS_SECRET_KEY || '');
+  if (alertsEnabled && !alertSecret) {
+    const msg = 'ALERTS_SECRET_KEY must be set to either 64-char hex or base64 encoding of 32 bytes when ALERTS_ENABLED=true';
+    if (IS_DEV) {
+      console.warn(`WARNING: ${msg}`);
+    } else {
+      console.error(`FATAL: ${msg}`);
+      process.exit(1);
+    }
   }
 
   // Fail-fast in production: unsafe defaults

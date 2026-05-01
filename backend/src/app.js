@@ -28,6 +28,8 @@ const {
   apiReadLimiter,
   heavyQueryLimiter,
   healthLimiter,
+  alertsLimiter,
+  alertsTestLimiter,
 } = require('./middleware/rateLimiters');
 
 const {
@@ -54,6 +56,7 @@ const { createAuthRouter } = require('./routes/auth');
 const { createDataRouter } = require('./routes/data');
 const { createAdminRouter } = require('./routes/admin');
 const { createMetricsRouter } = require('./routes/metrics');
+const { createAlertsRouter } = require('./routes/alerts');
 
 function createApp({ pool, state }) {
   const app = express();
@@ -166,6 +169,8 @@ function createApp({ pool, state }) {
     apiReadLimiter,
     heavyQueryLimiter,
     healthLimiter,
+    alertsLimiter,
+    alertsTestLimiter,
 
     // auth/token
     signToken,
@@ -200,6 +205,7 @@ function createApp({ pool, state }) {
   app.use(createDataRouter(deps));
   app.use(createAdminRouter(deps));
   app.use(createMetricsRouter(deps));
+  app.use(createAlertsRouter(deps));
 
   // =========================================================================
   // Static frontend serving (React SPA)

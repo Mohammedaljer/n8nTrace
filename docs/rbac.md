@@ -4,15 +4,21 @@ n8n-trace uses role-based access control to manage what users can see and do.
 
 <!-- TOC -->
 
-- [Roles Overview](#roles-overview)
-- [Permissions by Role](#permissions-by-role)
-- [Permission Keys](#permission-keys)
-- [Instance Scoping](#instance-scoping)
-- [Metrics Access](#metrics-access)
-- [API Access by Role](#api-access-by-role)
-- [Managing Users](#managing-users-admin)
-- [Managing Groups](#managing-groups-admin)
-- [First Admin](#first-admin)
+- [Roles & Permissions RBAC](#roles--permissions-rbac)
+    - [Roles Overview](#roles-overview)
+    - [Permissions by Role](#permissions-by-role)
+    - [Permission Keys](#permission-keys)
+    - [Instance Scoping](#instance-scoping)
+        - [Important: Metrics Require Instance Scope](#important-metrics-require-instance-scope)
+    - [Metrics Access](#metrics-access)
+    - [API Access by Role](#api-access-by-role)
+        - [Admin Endpoints /api/admin/*](#admin-endpoints-apiadmin)
+        - [Data Endpoints](#data-endpoints)
+        - [Auth Endpoints](#auth-endpoints)
+        - [Alerts Endpoints](#alerts-endpoints)
+    - [Managing Users Admin](#managing-users-admin)
+    - [Managing Groups Admin](#managing-groups-admin)
+    - [First Admin](#first-admin)
 
 <!-- /TOC -->
 
@@ -34,6 +40,12 @@ n8n-trace uses role-based access control to manage what users can see and do.
 | Export data | ✓ | ✓ | ✗ |
 | **Full metrics widgets** | ✓ | ✓ | ✗ |
 | Version info only | ✓ | ✓ | ✓ |
+| View alerts area and widgets | ✓ | ✓ | ✓ |
+| Acknowledge or suppress incidents | ✓ | ✓ | ✗ |
+| Manage alert rules | ✓ | ✗ | ✗ |
+| Manage alert destinations | ✓ | ✗ | ✗ |
+| Test alert destinations | ✓ | ✗ | ✗ |
+| Read delivery history and timelines | ✓ | ✓ | ✗ |
 | Manage users | ✓ | ✗ | ✗ |
 | Manage groups | ✓ | ✗ | ✗ |
 | View audit logs | ✓ | ✗ | ✗ |
@@ -54,6 +66,12 @@ n8n-trace uses role-based access control to manage what users can see and do.
 | `metrics.read.version` | Read n8n version info only |
 | `metrics.read.full` | Read all instance metrics (CPU, RAM, etc.) |
 | `metrics.manage` | Manage metrics configuration |
+| `alerts.read` | Read alerts pages, incidents, and dashboard widgets |
+| `alerts.rules.manage` | Create, update, enable/disable, and delete alert rules |
+| `alerts.incidents.ack` | Acknowledge and suppress alert incidents |
+| `alerts.destinations.manage` | Manage alert destinations and routing |
+| `alerts.destinations.test` | Send test webhook payloads |
+| `alerts.history.read` | Read alert delivery history and incident timelines |
 
 ## Instance Scoping
 
@@ -115,6 +133,27 @@ Users with only tag or workflow scopes **cannot** access instance-level metrics 
 | `GET /api/auth/me` | 200 | 401 |
 | `POST /api/auth/set-password` | 200 | 200/400 |
 | `POST /api/auth/reset-password` | 200 | 200/400 |
+
+### Alerts Endpoints
+
+| Endpoint | Admin | Analyst | Viewer | Unauth |
+|----------|:-----:|:-------:|:------:|:------:|
+| `GET /api/alerts/overview` | 200 | 200 | 200 | 401 |
+| `GET /api/alerts/incidents` | 200 | 200 | 200 | 401 |
+| `GET /api/alerts/incidents/:id/events` | 200 | 200 | 200 | 401 |
+| `POST /api/alerts/incidents/:id/ack` | 200 | 200 | 403 | 401 |
+| `POST /api/alerts/incidents/:id/suppress` | 200 | 200 | 403 | 401 |
+| `GET /api/alerts/rules` | 200 | 200 | 200 | 401 |
+| `POST /api/alerts/rules` | 200 | 403 | 403 | 401 |
+| `PUT /api/alerts/rules/:id` | 200 | 403 | 403 | 401 |
+| `DELETE /api/alerts/rules/:id` | 200 | 403 | 403 | 401 |
+| `GET /api/alerts/destinations` | 200 | 200 | 200 | 401 |
+| `POST /api/alerts/destinations` | 200 | 403 | 403 | 401 |
+| `PUT /api/alerts/destinations/:id` | 200 | 403 | 403 | 401 |
+| `DELETE /api/alerts/destinations/:id` | 200 | 403 | 403 | 401 |
+| `POST /api/alerts/destinations/:id/test` | 200 | 403 | 403 | 401 |
+| `GET /api/alerts/delivery-log` | 200 | 200 | 200 (scope-limited) | 401 |
+| `GET /api/alerts/tools/engine-status` | 200 | 200 (`alerts.history.read`) | 403 | 401 |
 
 ## Managing Users (Admin)
 

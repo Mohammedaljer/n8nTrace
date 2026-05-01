@@ -8,6 +8,7 @@ import {
   HelpCircle,
   PanelLeftClose,
   PanelLeft,
+  Bell,
   Users,
   UsersRound,
   Shield,
@@ -20,6 +21,7 @@ import { useAuth } from "@/security/AuthContext";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Alerts", url: "/alerts", icon: Bell },
   { title: "Workflows", url: "/workflows", icon: GitBranch },
   { title: "Executions", url: "/executions", icon: List },
   { title: "Help", url: "/help", icon: HelpCircle },
@@ -40,6 +42,11 @@ export function AppSidebar() {
   const showAdminSection =
     state.status === "authenticated" &&
     (state.permissions.includes("admin:users") || state.permissions.includes("admin:roles"));
+
+  const navItems =
+    state.status === "authenticated" && !state.permissions.includes("alerts.read")
+      ? mainNavItems.filter((item) => item.url !== "/alerts")
+      : mainNavItems;
 
   return (
     <aside
@@ -70,7 +77,7 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-2 py-3 overflow-y-auto" aria-label="Primary navigation">
-        {mainNavItems.map((item) => {
+        {navItems.map((item) => {
           const active = location.pathname.startsWith(item.url);
           return (
             <NavLink

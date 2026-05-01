@@ -15,7 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { GripVertical, RotateCcw, Check, Lock, Activity, BarChart3, Sparkles } from "lucide-react";
+import { GripVertical, RotateCcw, Check, Lock, Activity, BarChart3, BellRing, Sparkles } from "lucide-react";
 import type { WidgetDefinition, WidgetLayoutItem, WidgetSize, DashboardLayout } from "./widgetRegistry";
 import { SIZE_LABELS } from "./widgetRegistry";
 import type { MetricsConfig } from "@/data/metricsApi";
@@ -30,6 +30,7 @@ interface CustomizePanelProps {
   onReset: () => void;
   onClose: () => void;
   metricsConfig?: MetricsConfig | null;
+  permissions: string[];
 }
 
 interface DraggableItemProps {
@@ -156,6 +157,7 @@ export function CustomizePanel({
   onReset,
   onClose,
   metricsConfig,
+  permissions,
 }: CustomizePanelProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -182,6 +184,10 @@ export function CustomizePanel({
 
   // Check if a widget is disabled based on metrics config
   const getWidgetDisabledState = (definition: WidgetDefinition): { isDisabled: boolean; reason?: string } => {
+    if (definition.requiresPermission && !permissions.includes(definition.requiresPermission)) {
+      return { isDisabled: true, reason: `Requires permission: ${definition.requiresPermission}` };
+    }
+
     if (!definition.requiresMetricsEnabled) {
       return { isDisabled: false };
     }
@@ -206,6 +212,7 @@ export function CustomizePanel({
 
   // Separate widgets by category
   const metricsWidgets = layout.widgets.filter(w => registryMap.get(w.id)?.category === "metrics");
+  const alertWidgets = layout.widgets.filter(w => registryMap.get(w.id)?.category === "alerts");
   const analyticsWidgets = layout.widgets.filter(w => registryMap.get(w.id)?.category === "analytics");
 
   const visibleCount = layout.widgets.filter((w) => {
@@ -289,19 +296,20 @@ export function CustomizePanel({
           </div>
         )}
 
-        {/* Execution Analytics Widgets Section */}
-        {analyticsWidgets.length > 0 && (
+        {/* Alerts Widgets Section */}
+        {alertWidgets.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Execution Analytics Widgets
+              <BellRing className="h-4 w-4" />
+              Alerting Widgets
             </h4>
             <div className="space-y-2">
-              {analyticsWidgets.map((widget) => {
+              {alertWidgets.map((widget) => {
                 const definition = registryMap.get(widget.id);
                 if (!definition) return null;
 
                 const globalIndex = layout.widgets.findIndex(w => w.id === widget.id);
+                const { isDisabled, reason } = getWidgetDisabledState(definition);
 
                 return (
                   <DraggableItem
@@ -316,7 +324,45 @@ export function CustomizePanel({
                     onDragEnd={handleDragEnd}
                     isDragging={dragIndex === globalIndex}
                     dragOverIndex={dragOverIndex}
-                    isDisabled={false}
+                    isDisabled={isDisabled}
+                    disabledReason={reason}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Execution Analytics Widgets Section */}
+        {analyticsWidgets.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Execution Analytics Widgets
+            </h4>
+            <div className="space-y-2">
+              {analyticsWidgets.map((widget) => {
+                const definition = registryMap.get(widget.id);
+                if (!definition) return null;
+
+                const globalIndex = layout.widgets.findIndex(w => w.id === widget.id);
+                const { isDisabled, reason } = getWidgetDisabledState(definition);
+
+                return (
+                  <DraggableItem
+                    key={widget.id}
+                    widget={widget}
+                    definition={definition}
+                    index={globalIndex}
+                    onToggleVisibility={onToggleVisibility}
+                    onSetSize={onSetSize}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                    isDragging={dragIndex === globalIndex}
+                    dragOverIndex={dragOverIndex}
+                    isDisabled={isDisabled}
+                    disabledReason={reason}
                   />
                 );
               })}

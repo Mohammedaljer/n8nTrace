@@ -1,6 +1,6 @@
 {
   "name": "n8n-trace-backend",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "license": "MIT",
   "author": "Mohammed Aljer",
   "repository": {
@@ -22,7 +22,8 @@
     "seed:all": "node seed/seedAllDashboardData.js",
     "test": "jest",
     "test:security": "jest tests/password-validation.test.js tests/account-lockout.test.js tests/session-revocation.test.js --verbose",
-    "test:rbac": "jest tests/metrics-rbac.test.js --verbose"
+    "test:rbac": "jest tests/metrics-rbac.test.js --verbose",
+    "test:alerts": "jest tests/alerts-rbac.test.js tests/alerts-workers.test.js --verbose"
   },
   "keywords": [],
   "dependencies": {

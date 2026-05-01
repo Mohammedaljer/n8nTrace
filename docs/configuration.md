@@ -11,6 +11,7 @@ All configuration is via environment variables. Never commit real secrets.
 - [Authentication](#authentication)
 - [n8n Ingestion](#n8n-ingestion-optional)
 - [Metrics Feature](#metrics-feature-optional)
+- [Alerting Feature](#alerting-feature-optional)
 - [Data Retention](#data-retention-optional)
 - [Database](#database)
 - [Example .env File](#example-env-file)
@@ -98,6 +99,22 @@ The ingest user has least-privilege access to execution tables only.
 | `METRICS_MAX_CATALOG_SIZE` | `200` | Max catalog entries |
 | `METRICS_MAX_LABEL_VALUES` | `100` | Max label values |
 
+## Alerting Feature (Optional)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ALERTS_ENABLED` | `false` | Enable the alerts subsystem (workers + API + UI) |
+| `ALERTS_SECRET_KEY` | (required when enabled) | Secret used to encrypt webhook destination secrets. Must be 64-char hex or base64-encoded 32 bytes |
+| `ALERTS_EVALUATOR_POLL_MS` | `15000` | Rule evaluator polling interval |
+| `ALERTS_DELIVERY_POLL_MS` | `5000` | Notification delivery polling interval |
+| `ALERTS_MAINTENANCE_POLL_MS` | `60000` | Maintenance loop interval |
+| `ALERTS_RULE_BATCH_SIZE` | `25` | Max rules leased per evaluator pass |
+| `ALERTS_DELIVERY_BATCH_SIZE` | `50` | Max outbox messages leased per delivery pass |
+| `ALERTS_DELIVERY_MAX_ATTEMPTS` | `6` | Fallback max attempts if destination max is not set |
+| `ALERTS_DELIVERY_BASE_RETRY_MS` | `5000` | Base retry delay before exponential backoff |
+
+> When `ALERTS_ENABLED=true`, startup validates `ALERTS_SECRET_KEY` and fails fast in production if the key format is invalid.
+
 ## Data Retention (Optional)
 
 | Variable | Default | Description |
@@ -158,4 +175,6 @@ AUDIT_LOG_IP_SALT=<32-char-salt>
 METRICS_ENABLED=true
 RETENTION_ENABLED=true
 RETENTION_DAYS=90
+ALERTS_ENABLED=true
+ALERTS_SECRET_KEY=<64-char-hex-or-base64-32-byte-key>
 ```
