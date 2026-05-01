@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.1.0] - 2026-03-17
+## [2.1.0] - 2026-05-01
 
 ### Added
 - **Production alerting subsystem** with dedicated database schema: rules, selectors, destinations, incidents, timeline events, evaluation state, notification outbox, and delivery attempts
