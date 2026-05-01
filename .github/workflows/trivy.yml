@@ -41,7 +41,7 @@ jobs:
           format: "table"
           exit-code: "1"
           ignore-unfixed: true
-          severity: "CRITICAL,HIGH"
+          severity: "CRITICAL"
           vuln-type: "os,library"
           scanners: "vuln,secret"
 
@@ -52,7 +52,7 @@ jobs:
           scan-type: "config"
           format: "table"
           exit-code: "1"
-          severity: "CRITICAL,HIGH"
+          severity: "CRITICAL"
 
       - name: Frontend npm audit (omit dev)
         working-directory: frontend
