@@ -33,7 +33,7 @@ jobs:
         run: docker build --pull --no-cache -t n8ntrace:test .
 
       - name: Trivy image scan (OS & library & secrets)
-        uses: aquasecurity/trivy-action@0.34.1
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: "image"
           image-ref: "n8ntrace:test"
@@ -45,7 +45,7 @@ jobs:
           scanners: "vuln,secret"
 
       - name: Trivy config scan (Dockerfile / compose)
-        uses: aquasecurity/trivy-action@0.34.1
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: "config"
           format: "table"

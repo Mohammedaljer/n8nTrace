@@ -22,6 +22,7 @@ const WorkflowsPage = lazy(() => import("@/pages/WorkflowsPage"));
 const ExecutionsPage = lazy(() => import("@/pages/ExecutionsPage"));
 const ExecutionDetailPage = lazy(() => import("@/pages/ExecutionDetailPage"));
 const HelpPage = lazy(() => import("@/pages/HelpPage"));
+const AlertsPage = lazy(() => import("@/pages/AlertsPage"));
 const LoginPage = lazy(() => import("@/pages/Login"));
 const SetupPage = lazy(() => import("@/pages/Setup"));
 const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPassword"));
@@ -194,6 +195,19 @@ function App() {
                           <RouteErrorBoundary>
                             <Suspense fallback={<PageLoader />}>
                               <ExecutionDetailPage />
+                            </Suspense>
+                          </RouteErrorBoundary>
+                        }
+                      />
+
+                      <Route
+                        path="/alerts"
+                        element={
+                          <RouteErrorBoundary>
+                            <Suspense fallback={<PageLoader />}>
+                              <RequirePerm perm="alerts.read">
+                                <AlertsPage />
+                              </RequirePerm>
                             </Suspense>
                           </RouteErrorBoundary>
                         }

@@ -3,7 +3,7 @@ import type { ComponentType } from "react";
 export type WidgetSize = "small" | "medium" | "large";
 
 // Widget category for grouping in customize panel
-export type WidgetCategory = "metrics" | "analytics";
+export type WidgetCategory = "metrics" | "alerts" | "analytics";
 
 export interface WidgetDefinition {
   readonly id: string;
@@ -15,8 +15,8 @@ export interface WidgetDefinition {
   readonly defaultVisible: boolean;
   readonly allowedSizes: readonly WidgetSize[];
   readonly category: WidgetCategory;
-  // For metrics widgets: permission required
-  readonly requiresPermission?: "metrics.read.version" | "metrics.read.full";
+  // Permission required for this widget
+  readonly requiresPermission?: string;
   // For metrics widgets: requires metrics feature to be enabled
   readonly requiresMetricsEnabled?: boolean;
 }
@@ -54,7 +54,7 @@ export const SIZE_LABELS: Record<WidgetSize, string> = {
 };
 
 // Bump version when adding new widgets to force layout refresh
-const LAYOUT_VERSION = 3;
+const LAYOUT_VERSION = 4;
 const STORAGE_KEY = "n8n-dashboard-layout";
 
 export function getDefaultLayout(registry: readonly WidgetDefinition[]): DashboardLayout {

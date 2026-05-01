@@ -44,6 +44,12 @@ const heavyQueryLimiter = createRateLimiter(60 * 1000, 30);
 // Health endpoint limiter: 60 requests per minute per IP (protects against probe abuse)
 const healthLimiter = createRateLimiter(60 * 1000, 60);
 
+// Alerts API limiter: read/write operations and worker status endpoints
+const alertsLimiter = createRateLimiter(60 * 1000, 120);
+
+// Alerts test webhook limiter: prevent abuse of external webhook destinations
+const alertsTestLimiter = createRateLimiter(60 * 1000, 20);
+
 module.exports = {
   getStableIp,
   sensitiveAuthLimiter,
@@ -56,4 +62,6 @@ module.exports = {
   apiReadLimiter,
   heavyQueryLimiter,
   healthLimiter,
+  alertsLimiter,
+  alertsTestLimiter,
 };

@@ -104,6 +104,10 @@ export default function DashboardPage() {
       const definition = WIDGET_REGISTRY.find((w) => w.id === widget.id);
       if (!definition) return false;
 
+      if (definition.requiresPermission && !state.permissions.includes(definition.requiresPermission)) {
+        return false;
+      }
+
       // For non-metrics widgets, always include
       if (!definition.requiresMetricsEnabled) return true;
 
@@ -120,7 +124,7 @@ export default function DashboardPage() {
 
       return true;
     });
-  }, [getVisibleWidgets, metricsConfig]);
+  }, [getVisibleWidgets, metricsConfig, state.permissions]);
 
   // Widget registry map for quick lookup
   const registryMap = useMemo(
@@ -186,6 +190,7 @@ export default function DashboardPage() {
     }
 
     const metricsWidgets = visibleWidgets.filter(w => registryMap.get(w.id)?.category === "metrics");
+    const alertWidgets = visibleWidgets.filter(w => registryMap.get(w.id)?.category === "alerts");
     const analyticsWidgets = visibleWidgets.filter(w => registryMap.get(w.id)?.category === "analytics");
 
     return (
@@ -209,6 +214,25 @@ export default function DashboardPage() {
               })}
             </div>
           </MetricsProvider>
+        )}
+
+        {/* Alerts Widgets */}
+        {alertWidgets.length > 0 && (
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+            {alertWidgets.map((widget) => {
+              const definition = registryMap.get(widget.id);
+              if (!definition) return null;
+
+              const WidgetComponent = definition.component;
+              const colSpan = SIZE_COLS[widget.size];
+
+              return (
+                <div key={widget.id} className={`col-span-1 ${colSpan}`}>
+                  <WidgetComponent size={widget.size} />
+                </div>
+              );
+            })}
+          </div>
         )}
 
         {/* Analytics Widgets */}
@@ -252,6 +276,7 @@ export default function DashboardPage() {
           onReset={resetToDefault}
           onClose={() => setIsCustomizing(false)}
           metricsConfig={metricsConfig}
+          permissions={state.permissions}
         />
       )}
 

@@ -125,6 +125,16 @@ function diurnalMultiplier(hour) {
 
 async function cleanSeedTables(client) {
   console.log('🗑️  Cleaning existing seed data …');
+  await client.query('DELETE FROM alert_notification_attempts');
+  await client.query('DELETE FROM alert_notification_outbox');
+  await client.query('DELETE FROM alert_incident_events');
+  await client.query('DELETE FROM alert_incidents');
+  await client.query('DELETE FROM alert_evaluation_state');
+  await client.query('DELETE FROM alert_rule_destinations');
+  await client.query('DELETE FROM alert_rule_selectors');
+  await client.query('DELETE FROM alert_rules');
+  await client.query('DELETE FROM alert_destinations');
+  await client.query('DELETE FROM workflow_alert_profile');
   // Order matters (FKs): nodes → executions → workflows → metrics
   await client.query('DELETE FROM execution_nodes WHERE instance_id IN ($1,$2)', [INSTANCES[0].id, INSTANCES[1].id]);
   await client.query('DELETE FROM executions       WHERE instance_id IN ($1,$2)', [INSTANCES[0].id, INSTANCES[1].id]);
@@ -532,6 +542,368 @@ async function flushSamples(client, rows) {
   );
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+//  6. Alerts subsystem demo data
+// ───────────────────────────────────────────────────────────────────────────
+async function seedAlerts(client) {
+  console.log('🚨  Seeding alerting subsystem …');
+
+  const now = Date.now();
+  const minutesAgo = (n) => new Date(now - n * 60 * 1000).toISOString();
+
+  const destinations = [
+    {
+      name: 'Ops Pager Webhook',
+      webhookUrl: 'https://example.invalid/hooks/ops-pager',
+      headers: { 'X-Environment': 'production' },
+      timeoutMs: 5000,
+      retryMaxAttempts: 6,
+    },
+    {
+      name: 'Slack Alerts Bridge',
+      webhookUrl: 'https://example.invalid/hooks/slack-alerts',
+      headers: { 'X-Channel': 'n8n-alerts' },
+      timeoutMs: 4000,
+      retryMaxAttempts: 5,
+    },
+  ];
+
+  const destinationIds = [];
+  for (const destination of destinations) {
+    const { rows } = await client.query(
+      `INSERT INTO alert_destinations
+         (name, type, enabled, webhook_url, headers, timeout_ms, retry_max_attempts, created_at, updated_at)
+       VALUES ($1, 'webhook', true, $2, $3::jsonb, $4, $5, now(), now())
+       RETURNING id`,
+      [
+        destination.name,
+        destination.webhookUrl,
+        JSON.stringify(destination.headers),
+        destination.timeoutMs,
+        destination.retryMaxAttempts,
+      ]
+    );
+    destinationIds.push(rows[0].id);
+  }
+
+  const rules = [
+    {
+      name: 'Workflow inactivity - prod critical workflows',
+      description: 'Alerts when key production workflows have no executions for 6h.',
+      ruleType: 'workflow_inactivity',
+      severity: 'critical',
+      intervalSec: 300,
+      config: { thresholdHours: 6, targetMode: 'selected' },
+      selectors: [
+        { mode: 'include', kind: 'instance_id', value: 'prod' },
+        { mode: 'include', kind: 'workflow_id', value: 'prod-wf-001' },
+        { mode: 'include', kind: 'workflow_id', value: 'prod-wf-010' },
+      ],
+      routeMinSeverity: 'warning',
+    },
+    {
+      name: 'Stuck executions over 45m',
+      description: 'Detects workflows stuck in running/waiting status over threshold.',
+      ruleType: 'stuck_execution',
+      severity: 'warning',
+      intervalSec: 120,
+      config: { thresholdMinutes: 45, targetMode: 'all' },
+      selectors: [
+        { mode: 'exclude', kind: 'tag', value: 'test' },
+      ],
+      routeMinSeverity: 'info',
+    },
+    {
+      name: 'Metrics freshness per instance',
+      description: 'Alerts when metrics snapshots are stale over 15 minutes.',
+      ruleType: 'metrics_freshness',
+      severity: 'warning',
+      intervalSec: 60,
+      config: { thresholdMinutes: 15, targetMode: 'all' },
+      selectors: [],
+      routeMinSeverity: 'warning',
+    },
+  ];
+
+  const ruleIds = [];
+  for (const rule of rules) {
+    const { rows } = await client.query(
+      `INSERT INTO alert_rules
+         (name, description, rule_type, severity, enabled, evaluation_interval_sec, cooldown_sec, open_after_n, resolve_after_n, apply_default_exclusions, config, next_eval_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, true, $5, 600, 1, 1, true, $6::jsonb, now() + interval '5 minutes', now(), now())
+       RETURNING id`,
+      [rule.name, rule.description, rule.ruleType, rule.severity, rule.intervalSec, JSON.stringify(rule.config)]
+    );
+    const ruleId = rows[0].id;
+    ruleIds.push(ruleId);
+
+    for (const selector of rule.selectors) {
+      await client.query(
+        `INSERT INTO alert_rule_selectors (rule_id, selector_mode, selector_kind, selector_value)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT DO NOTHING`,
+        [ruleId, selector.mode, selector.kind, selector.value]
+      );
+    }
+
+    for (const destinationId of destinationIds) {
+      await client.query(
+        `INSERT INTO alert_rule_destinations
+           (rule_id, destination_id, notify_on_open, notify_on_resolve, notify_on_ack, min_severity)
+         VALUES ($1, $2, true, true, true, $3)
+         ON CONFLICT (rule_id, destination_id)
+         DO UPDATE SET min_severity = EXCLUDED.min_severity`,
+        [ruleId, destinationId, rule.routeMinSeverity]
+      );
+    }
+  }
+
+  const incidents = [
+    {
+      ruleId: ruleIds[0],
+      fingerprint: 'workflow:prod-wf-001',
+      instanceId: 'prod',
+      workflowId: 'prod-wf-001',
+      status: 'open',
+      severity: 'critical',
+      title: 'Daily Sales Sync inactivity',
+      summary: 'No execution for 7.2h (threshold 6h)',
+      startedAt: minutesAgo(430),
+      lastSeenAt: minutesAgo(6),
+      resolvedAt: null,
+      acknowledgedAt: null,
+      suppressedUntil: null,
+    },
+    {
+      ruleId: ruleIds[1],
+      fingerprint: 'workflow:prod-wf-005',
+      instanceId: 'prod',
+      workflowId: 'prod-wf-005',
+      status: 'acknowledged',
+      severity: 'warning',
+      title: 'Customer Onboarding Emails stuck execution',
+      summary: 'Execution running for 52.5m (threshold 45m)',
+      startedAt: minutesAgo(210),
+      lastSeenAt: minutesAgo(9),
+      resolvedAt: null,
+      acknowledgedAt: minutesAgo(40),
+      suppressedUntil: null,
+    },
+    {
+      ruleId: ruleIds[2],
+      fingerprint: 'instance:staging',
+      instanceId: 'staging',
+      workflowId: null,
+      status: 'suppressed',
+      severity: 'warning',
+      title: 'Metrics freshness stale on staging',
+      summary: 'Metrics are stale (18.1m old, threshold 15m)',
+      startedAt: minutesAgo(120),
+      lastSeenAt: minutesAgo(4),
+      resolvedAt: null,
+      acknowledgedAt: null,
+      suppressedUntil: minutesAgo(-26),
+    },
+    {
+      ruleId: ruleIds[1],
+      fingerprint: 'workflow:staging-wf-009',
+      instanceId: 'staging',
+      workflowId: 'staging-wf-009',
+      status: 'resolved',
+      severity: 'warning',
+      title: 'Zendesk Ticket Triage stuck execution',
+      summary: 'Running execution age 7.2m',
+      startedAt: minutesAgo(780),
+      lastSeenAt: minutesAgo(500),
+      resolvedAt: minutesAgo(500),
+      acknowledgedAt: null,
+      suppressedUntil: null,
+    },
+  ];
+
+  const incidentIds = [];
+  for (const incident of incidents) {
+    const { rows } = await client.query(
+      `INSERT INTO alert_incidents
+         (rule_id, fingerprint, instance_id, workflow_id, status, severity, title, summary, started_at, last_seen_at, resolved_at, acknowledged_at, suppressed_until, details, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::timestamptz, $10::timestamptz, $11::timestamptz, $12::timestamptz, $13::timestamptz, $14::jsonb, now(), now())
+       RETURNING id`,
+      [
+        incident.ruleId,
+        incident.fingerprint,
+        incident.instanceId,
+        incident.workflowId,
+        incident.status,
+        incident.severity,
+        incident.title,
+        incident.summary,
+        incident.startedAt,
+        incident.lastSeenAt,
+        incident.resolvedAt,
+        incident.acknowledgedAt,
+        incident.suppressedUntil,
+        JSON.stringify({ seeded: true }),
+      ]
+    );
+    incidentIds.push(rows[0].id);
+  }
+
+  for (let i = 0; i < incidentIds.length; i += 1) {
+    const incidentId = incidentIds[i];
+    await client.query(
+      `INSERT INTO alert_incident_events (incident_id, event_type, note, event_data, created_at)
+       VALUES ($1, 'open', 'Seeded opening event', $2::jsonb, now() - interval '2 hours')`,
+      [incidentId, JSON.stringify({ seeded: true })]
+    );
+
+    if (incidents[i].status === 'acknowledged') {
+      await client.query(
+        `INSERT INTO alert_incident_events (incident_id, event_type, note, event_data, created_at)
+         VALUES ($1, 'acknowledged', 'Acknowledged during incident review', $2::jsonb, now() - interval '40 minutes')`,
+        [incidentId, JSON.stringify({ actor: 'seed-script' })]
+      );
+    }
+
+    if (incidents[i].status === 'suppressed') {
+      await client.query(
+        `INSERT INTO alert_incident_events (incident_id, event_type, note, event_data, created_at)
+         VALUES ($1, 'suppressed', 'Suppressed for maintenance window', $2::jsonb, now() - interval '15 minutes')`,
+        [incidentId, JSON.stringify({ durationMinutes: 30 })]
+      );
+    }
+
+    if (incidents[i].status === 'resolved') {
+      await client.query(
+        `INSERT INTO alert_incident_events (incident_id, event_type, note, event_data, created_at)
+         VALUES ($1, 'resolved', 'Resolved after recovery', $2::jsonb, now() - interval '500 minutes')`,
+        [incidentId, JSON.stringify({ durationMinutes: 280 })]
+      );
+    }
+  }
+
+  const outboxRows = [
+    {
+      incidentId: incidentIds[0],
+      ruleId: ruleIds[0],
+      destinationId: destinationIds[0],
+      eventType: 'open',
+      status: 'retry',
+      attemptCount: 2,
+      maxAttempts: 6,
+      nextAttemptAt: minutesAgo(-1),
+      lastError: 'HTTP 500 from destination',
+      lastResponseStatus: 500,
+    },
+    {
+      incidentId: incidentIds[1],
+      ruleId: ruleIds[1],
+      destinationId: destinationIds[1],
+      eventType: 'acknowledged',
+      status: 'sent',
+      attemptCount: 1,
+      maxAttempts: 5,
+      nextAttemptAt: minutesAgo(35),
+      lastError: null,
+      lastResponseStatus: 200,
+    },
+    {
+      incidentId: incidentIds[2],
+      ruleId: ruleIds[2],
+      destinationId: destinationIds[0],
+      eventType: 'open',
+      status: 'dead',
+      attemptCount: 6,
+      maxAttempts: 6,
+      nextAttemptAt: minutesAgo(10),
+      lastError: 'Destination timeout after retries',
+      lastResponseStatus: null,
+    },
+    {
+      incidentId: incidentIds[3],
+      ruleId: ruleIds[1],
+      destinationId: destinationIds[1],
+      eventType: 'resolved',
+      status: 'pending',
+      attemptCount: 0,
+      maxAttempts: 5,
+      nextAttemptAt: minutesAgo(-2),
+      lastError: null,
+      lastResponseStatus: null,
+    },
+  ];
+
+  const outboxIds = [];
+  for (const row of outboxRows) {
+    const dedupeKey = `${row.incidentId}:${row.eventType}:${row.destinationId}`;
+    const { rows } = await client.query(
+      `INSERT INTO alert_notification_outbox
+         (incident_id, rule_id, destination_id, event_type, dedupe_key, payload, status, attempt_count, max_attempts, next_attempt_at, last_error, last_response_status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10::timestamptz, $11, $12, now(), now())
+       RETURNING id`,
+      [
+        row.incidentId,
+        row.ruleId,
+        row.destinationId,
+        row.eventType,
+        dedupeKey,
+        JSON.stringify({ seeded: true, eventType: row.eventType }),
+        row.status,
+        row.attemptCount,
+        row.maxAttempts,
+        row.nextAttemptAt,
+        row.lastError,
+        row.lastResponseStatus,
+      ]
+    );
+    outboxIds.push(rows[0].id);
+  }
+
+  await client.query(
+    `INSERT INTO alert_notification_attempts
+       (outbox_id, attempt_no, attempted_at, success, response_status, response_body, error, latency_ms)
+     VALUES
+       ($1, 1, now() - interval '12 minutes', false, 500, 'Internal error', 'HTTP 500', 172),
+       ($1, 2, now() - interval '3 minutes', false, 500, 'Internal error', 'HTTP 500', 164),
+       ($2, 1, now() - interval '36 minutes', true, 200, 'ok', NULL, 92),
+       ($3, 1, now() - interval '70 minutes', false, NULL, '', 'Timeout', 5000),
+       ($3, 2, now() - interval '60 minutes', false, NULL, '', 'Timeout', 5000),
+       ($3, 3, now() - interval '50 minutes', false, NULL, '', 'Timeout', 5000),
+       ($3, 4, now() - interval '40 minutes', false, NULL, '', 'Timeout', 5000),
+       ($3, 5, now() - interval '30 minutes', false, NULL, '', 'Timeout', 5000),
+       ($3, 6, now() - interval '20 minutes', false, NULL, '', 'Timeout', 5000)`,
+    [outboxIds[0], outboxIds[1], outboxIds[2]]
+  );
+
+  await client.query(
+    `INSERT INTO alert_evaluation_state
+       (rule_id, target_fingerprint, instance_id, workflow_id, consecutive_breach, consecutive_ok, last_value, last_message, last_eval_at, updated_at)
+     VALUES
+       ($1, 'workflow:prod-wf-001', 'prod', 'prod-wf-001', 4, 0, 7.2, 'No execution for 7.2h', now() - interval '5 minutes', now()),
+       ($2, 'workflow:prod-wf-005', 'prod', 'prod-wf-005', 3, 0, 52.5, 'Execution running for 52.5m', now() - interval '4 minutes', now()),
+       ($3, 'instance:staging', 'staging', NULL, 2, 0, 18.1, 'Metrics stale for 18.1m', now() - interval '2 minutes', now())
+     ON CONFLICT (rule_id, target_fingerprint) DO NOTHING`,
+    [ruleIds[0], ruleIds[1], ruleIds[2]]
+  );
+
+  await client.query(
+    `INSERT INTO workflow_alert_profile
+       (workflow_id, instance_id, is_template, is_test, inactivity_exempt, source, created_at, updated_at)
+     VALUES
+       ('prod-wf-012', 'prod', true, false, true, 'seed', now(), now()),
+       ('staging-wf-013', 'staging', false, true, true, 'seed', now(), now())
+     ON CONFLICT (workflow_id) DO UPDATE
+       SET is_template = EXCLUDED.is_template,
+           is_test = EXCLUDED.is_test,
+           inactivity_exempt = EXCLUDED.inactivity_exempt,
+           source = EXCLUDED.source,
+           updated_at = now()`
+  );
+
+  console.log(`   ✅ ${rules.length} alert rules.`);
+  console.log(`   ✅ ${incidents.length} alert incidents.`);
+  console.log(`   ✅ ${outboxRows.length} notification outbox rows.\n`);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  MAIN
 // ═══════════════════════════════════════════════════════════════════════════
@@ -553,6 +925,7 @@ async function main() {
     await seedExecutions(client);
     await seedMetricsSnapshot(client);
     await seedMetricsExplorer(client);
+    await seedAlerts(client);
 
     await client.query('COMMIT');
 

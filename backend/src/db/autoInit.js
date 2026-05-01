@@ -94,12 +94,19 @@ async function autoInit() {
       { key: 'metrics.read.version', description: 'Read n8n version information only' },
       { key: 'metrics.read.full', description: 'Read all instance metrics' },
       { key: 'metrics.manage', description: 'Manage metrics access and configuration' },
+      // Alerts permissions
+      { key: 'alerts.read', description: 'Read alerts pages, incidents, and widgets' },
+      { key: 'alerts.rules.manage', description: 'Create, update, and delete alert rules' },
+      { key: 'alerts.incidents.ack', description: 'Acknowledge alert incidents' },
+      { key: 'alerts.destinations.manage', description: 'Manage alert destinations and routing' },
+      { key: 'alerts.destinations.test', description: 'Send test webhooks for alert destinations' },
+      { key: 'alerts.history.read', description: 'Read alert delivery history and timeline' },
     ];
     // role key → permission keys
     const rolePerm = {
-      admin: ['admin:users', 'admin:roles', 'admin:groups', 'read:workflows', 'read:executions', 'read:nodes', 'export:data', 'metrics.read.version', 'metrics.read.full', 'metrics.manage'],
-      analyst: ['read:workflows', 'read:executions', 'read:nodes', 'export:data', 'metrics.read.version', 'metrics.read.full'],
-      viewer: ['read:workflows', 'read:executions', 'read:nodes', 'metrics.read.version'],
+      admin: ['admin:users', 'admin:roles', 'admin:groups', 'read:workflows', 'read:executions', 'read:nodes', 'export:data', 'metrics.read.version', 'metrics.read.full', 'metrics.manage', 'alerts.read', 'alerts.rules.manage', 'alerts.incidents.ack', 'alerts.destinations.manage', 'alerts.destinations.test', 'alerts.history.read'],
+      analyst: ['read:workflows', 'read:executions', 'read:nodes', 'export:data', 'metrics.read.version', 'metrics.read.full', 'alerts.read', 'alerts.incidents.ack', 'alerts.history.read'],
+      viewer: ['read:workflows', 'read:executions', 'read:nodes', 'metrics.read.version', 'alerts.read'],
     };
     const groups = [
       { name: 'Admin', description: 'Full access including user and group management.', roleKey: 'admin' },

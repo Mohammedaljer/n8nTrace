@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-03-17
+
+### Added
+- **Production alerting subsystem** with dedicated database schema: rules, selectors, destinations, incidents, timeline events, evaluation state, notification outbox, and delivery attempts
+- **Alerts API surface** under `/api/alerts/*` covering overview, incidents, rules, destinations, delivery log, and operations tools
+- **Background workers** for evaluator, delivery, and maintenance loops with multi-instance safe leasing and retry backoff
+- **Secure webhook destinations** with encrypted shared secret storage (`ALERTS_SECRET_KEY`) and masked destination responses
+- **Alerts area in UI** with six sections: Overview, Incidents, Rules, Destinations, Delivery Log, and Tools
+- **Permission-aware alerts navigation and dashboard widgets** (active count, severity split, recent incidents)
+- **New RBAC permissions**: `alerts.read`, `alerts.rules.manage`, `alerts.incidents.ack`, `alerts.destinations.manage`, `alerts.destinations.test`, `alerts.history.read`
+- **Alert demo seed data** for rules, incidents, and delivery logs in `seedAllDashboardData.js`
+
+### Changed
+- Dashboard widget registry now supports generic permission-gated widgets beyond metrics
+- Server startup now initializes and gracefully shuts down alert workers when enabled
+- Docker Compose configs include alerting environment variables for local and production stacks
+
+### Security
+- Alert destination secrets are encrypted at rest and only decrypted at delivery/test time
+- Incident acknowledgements and destination actions are audit-logged for traceability
+
+---
+
 ## [2.0.0] - 2026-03-04
 
 ### Breaking Changes

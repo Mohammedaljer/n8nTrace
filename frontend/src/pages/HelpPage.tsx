@@ -10,6 +10,10 @@ import {
   Share2,
   User,
   Info,
+  Bell,
+  Gauge,
+  ListChecks,
+  ExternalLink,
 } from "lucide-react";
 import { useData } from "@/data/DataContext";
 import { useAuth } from "@/security/AuthContext";
@@ -32,6 +36,15 @@ const guides = [
   },
 ] as const;
 
+const githubDocsLinks = [
+  { label: "Project README", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/README.md" },
+  { label: "Getting Started", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/docs/getting-started.md" },
+  { label: "Configuration", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/docs/configuration.md" },
+  { label: "Backend Guide", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/docs/backend.md" },
+  { label: "Frontend Guide", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/docs/frontend.md" },
+  { label: "Troubleshooting", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/docs/troubleshooting.md" },
+] as const;
+
 export default function HelpPage() {
   const { loadResult } = useData();
   const { state } = useAuth();
@@ -44,6 +57,20 @@ export default function HelpPage() {
 
   return (
     <PageShell title="Help" description="A quick guide to get started with the analytics dashboard.">
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-3 pb-2">
+          <ListChecks className="h-5 w-5 text-primary" />
+          <CardTitle className="text-base">Start Here (Simple)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>1. Sign in and check that data is loading.</p>
+          <p>2. Open Dashboard to confirm execution numbers are updating.</p>
+          <p>3. Open Workflows and use filters to find critical flows.</p>
+          <p>4. Open Alerts and create one basic rule first.</p>
+          <p>5. Add a destination webhook and send a test notification.</p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-3">
         {guides.map((guide) => (
           <Card key={guide.title}>
@@ -57,6 +84,59 @@ export default function HelpPage() {
           </Card>
         ))}
       </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-3 pb-2">
+            <Gauge className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base">What To Check Daily</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>Dashboard: health trends and error spikes.</p>
+            <p>Executions: failed runs and long-running jobs.</p>
+            <p>Workflows: disabled or unhealthy critical flows.</p>
+            <p>Alerts: open incidents and repeated notifications.</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-3 pb-2">
+            <Bell className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base">First Alert Setup (Recommended)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>Rule type: workflow inactivity.</p>
+            <p>Interval: 300 seconds.</p>
+            <p>Open after N: 1. Resolve after N: 1.</p>
+            <p>Threshold: 2 hours for production workflows.</p>
+            <p>Add selectors to target prod workflows only, then preview targets before save.</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-3 pb-2">
+          <FileText className="h-5 w-5 text-primary" />
+          <CardTitle className="text-base">Learn More On GitHub</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {githubDocsLinks.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 text-primary hover:underline"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              <span>{link.label}</span>
+            </a>
+          ))}
+          <p className="pt-1 text-xs text-muted-foreground">
+            These links open the full docs on GitHub for advanced setup and deeper explanations.
+          </p>
+        </CardContent>
+      </Card>
 
       <Alert variant="default">
         <User className="h-5 w-5" />
