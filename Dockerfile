@@ -5,7 +5,7 @@
 # =============================================================================
 
 # Stage 1: Build frontend
-FROM node:22.14.0-alpine AS frontend-builder
+FROM node:22.22.2-alpine AS frontend-builder
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json ./
@@ -17,7 +17,7 @@ ENV VITE_API_BASE_URL=
 RUN npm run build
 
 # Stage 2: Install backend production dependencies
-FROM node:22.14.0-alpine AS backend-deps
+FROM node:22.22.2-alpine AS backend-deps
 WORKDIR /app
 
 ENV npm_config_cache=/tmp/.npm
@@ -25,7 +25,7 @@ COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && rm -rf /tmp/.npm
 
 # Stage 3: Production (distroless — no shell, minimal attack surface)
-FROM gcr.io/distroless/nodejs22-debian12:nonroot
+FROM gcr.io/distroless/nodejs22-debian12:latest
 WORKDIR /app
 
 # Backend dependencies + code
