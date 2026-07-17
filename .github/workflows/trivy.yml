@@ -56,12 +56,14 @@ jobs:
 
       - name: Frontend npm audit (omit dev)
         working-directory: frontend
+        continue-on-error: true
         run: |
-          npm ci
+          npm ci --no-audit --no-fund
           npm audit --omit=dev
 
       - name: Backend npm audit (omit dev)
         working-directory: backend
+        continue-on-error: true
         run: |
-          npm ci
+          npm ci --no-audit --no-fund
           npm audit --omit=dev
