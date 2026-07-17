@@ -520,7 +520,7 @@ export function MetricsExplorer({ instanceId, className }: MetricsExplorerProps)
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center text-muted-foreground">
               <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p>No data available for the selected time range</p>
+              <p>No data available for the selected instance and time range</p>
             </div>
           </CardContent>
         </Card>
@@ -747,8 +747,10 @@ const byTs = new Map<number, ChartRow>();
           <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
             <Info className="h-10 w-10 text-muted-foreground/30" />
             <div>
-              <p className="text-sm font-medium">Select a single instance to view metrics</p>
-              <p className="text-sm text-muted-foreground">Use the Instance dropdown above to choose an instance</p>
+              <p className="text-sm font-medium">Select an instance to view metrics</p>
+              <p className="text-sm text-muted-foreground">
+                If only one instance is available, it will be selected automatically.
+              </p>
             </div>
           </div>
         </CardContent>

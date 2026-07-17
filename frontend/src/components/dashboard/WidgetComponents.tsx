@@ -63,9 +63,9 @@ function SelectInstancePrompt({ title }: { title: string }) {
         <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
           <Info className="h-10 w-10 text-muted-foreground/30" />
           <div>
-            <p className="text-sm font-medium">Select a single instance to view {title.toLowerCase()}</p>
+            <p className="text-sm font-medium">Select an instance to view {title.toLowerCase()}</p>
             <p className="text-sm text-muted-foreground">
-              Use the Instance dropdown above to choose an instance
+              If only one instance is available, it will be selected automatically.
             </p>
           </div>
         </div>

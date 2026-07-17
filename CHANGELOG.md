@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.1] - 2026-07-17
+
+### Changed
+- Help site documentation links now point to the correct `Mohammedaljer/n8nTrace` repository URL
+- Metrics widgets now auto-select the only available instance instead of showing the single-instance prompt
+
+### Fixed
+- Metrics Explorer JSX structure corrected so the frontend Docker build completes successfully
+
 ## [2.1.0] - 2026-05-01
 
 ### Added

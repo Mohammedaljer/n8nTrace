@@ -34,13 +34,7 @@ export function FilterProvider({ children }: FilterProviderProps) {
               instanceSet.add(inst);
             }
           }
-          const instanceArray = Array.from(instanceSet);
-          filterState.setAvailableInstances(instanceArray);
-          
-          // Auto-select if there's exactly one instance and none is selected
-          if (instanceArray.length === 1 && !filterState.filters.instanceId) {
-            filterState.setFilter('instanceId', instanceArray[0]);
-          }
+          filterState.setAvailableInstances(Array.from(instanceSet));
         })
         .catch(() => {
           // Fallback: just use execution instances
@@ -49,13 +43,17 @@ export function FilterProvider({ children }: FilterProviderProps) {
     } else {
       const instanceArray = Array.from(instanceSet);
       filterState.setAvailableInstances(instanceArray);
-      
-      // Auto-select if there's exactly one instance
-      if (instanceArray.length === 1 && !filterState.filters.instanceId) {
-        filterState.setFilter('instanceId', instanceArray[0]);
-      }
     }
   }, [loadResult]); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally not depending on filterState methods
+
+  useEffect(() => {
+    if (filterState.availableInstances.length !== 1) return;
+
+    const [singleInstance] = filterState.availableInstances;
+    if (filterState.filters.instanceId === singleInstance) return;
+
+    filterState.setFilter('instanceId', singleInstance);
+  }, [filterState.availableInstances, filterState.filters.instanceId, filterState.setFilter]);
 
   return (
     <FilterContext.Provider

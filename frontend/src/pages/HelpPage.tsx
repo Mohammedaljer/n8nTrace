@@ -37,12 +37,12 @@ const guides = [
 ] as const;
 
 const githubDocsLinks = [
-  { label: "Project README", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/README.md" },
-  { label: "Getting Started", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/docs/getting-started.md" },
-  { label: "Configuration", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/docs/configuration.md" },
-  { label: "Backend Guide", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/docs/backend.md" },
-  { label: "Frontend Guide", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/docs/frontend.md" },
-  { label: "Troubleshooting", href: "https://github.com/mohammedaljer/n8n-trace/blob/main/docs/troubleshooting.md" },
+  { label: "Project README", href: "https://github.com/Mohammedaljer/n8nTrace/blob/main/README.md" },
+  { label: "Getting Started", href: "https://github.com/Mohammedaljer/n8nTrace/blob/main/docs/getting-started.md" },
+  { label: "Configuration", href: "https://github.com/Mohammedaljer/n8nTrace/blob/main/docs/configuration.md" },
+  { label: "Backend Guide", href: "https://github.com/Mohammedaljer/n8nTrace/blob/main/docs/backend.md" },
+  { label: "Frontend Guide", href: "https://github.com/Mohammedaljer/n8nTrace/blob/main/docs/frontend.md" },
+  { label: "Troubleshooting", href: "https://github.com/Mohammedaljer/n8nTrace/blob/main/docs/troubleshooting.md" },
 ] as const;
 
 export default function HelpPage() {
