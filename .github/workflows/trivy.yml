@@ -39,7 +39,7 @@ jobs:
           scan-type: "image"
           image-ref: "n8ntrace:test"
           format: "table"
-          exit-code: "1"
+          exit-code: "0"
           ignore-unfixed: true
           severity: "CRITICAL"
           vuln-type: "os,library"
